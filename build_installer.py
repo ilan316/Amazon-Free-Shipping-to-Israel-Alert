@@ -516,37 +516,72 @@ class InstallerApp(tk.Tk):
     def _close_running_app(self):
         """Close the running app (including from tray) before installing.
 
-        Sends a close message first; waits briefly; then force-kills with taskkill.
-        This ensures no file handles are held open when we overwrite the files.
+        The launcher exe (AmazonIsraelFreeShipAlert.exe) spawns python.exe
+        and exits after ~4 seconds, so the real long-running process is
+        python.exe gui.py.  We find it by command-line pattern and kill it.
         """
-        import ctypes, time
+        import time
         self._log("\nChecking for a running instance of the app...")
+        killed = False
 
-        # Graceful close — find the window and send WM_CLOSE
+        # Primary: wmic — find python.exe with gui.py in its command line
         try:
-            _u32 = ctypes.windll.user32
-            hwnd = _u32.FindWindowW(None, "Amazon Israel Free Ship Alert")
-            if hwnd:
-                self._log("  Found running app — sending close signal...")
-                _u32.PostMessageW(hwnd, 0x0010, 0, 0)  # WM_CLOSE
-                time.sleep(2)
+            out = subprocess.check_output(
+                ["wmic", "process", "where",
+                 "name='python.exe' and CommandLine like '%gui.py%'",
+                 "get", "ProcessId"],
+                creationflags=_NO_WIN, text=True, encoding="utf-8",
+                errors="ignore", stderr=subprocess.DEVNULL, timeout=8,
+            )
+            pids = [ln.strip() for ln in out.splitlines() if ln.strip().isdigit()]
+            for pid in pids:
+                ret = subprocess.call(
+                    ["taskkill", "/F", "/PID", pid],
+                    creationflags=_NO_WIN,
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                )
+                if ret == 0:
+                    self._log(f"  App process (PID {pid}) terminated.")
+                    killed = True
         except Exception:
-            pass
+            # wmic not available — try PowerShell fallback
+            try:
+                _ps = os.path.join(
+                    os.environ.get("SystemRoot", r"C:\Windows"),
+                    "System32", "WindowsPowerShell", "v1.0", "powershell.exe")
+                _cmd = (
+                    "Get-WmiObject Win32_Process -Filter \"name='python.exe'\" | "
+                    "Where-Object {$_.CommandLine -like '*gui.py*'} | "
+                    "ForEach-Object {Stop-Process -Id $_.ProcessId -Force "
+                    "-ErrorAction SilentlyContinue}"
+                )
+                subprocess.call(
+                    [_ps, "-NoProfile", "-NonInteractive",
+                     "-ExecutionPolicy", "Bypass", "-Command", _cmd],
+                    creationflags=_NO_WIN, timeout=15,
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                )
+                killed = True
+            except Exception:
+                pass
 
-        # Force-kill AmazonIsraelFreeShipAlert.exe (handles tray-only state too)
+        # Also kill AmazonIsraelFreeShipAlert.exe in case it is still running
         try:
             ret = subprocess.call(
                 ["taskkill", "/F", "/IM", "AmazonIsraelFreeShipAlert.exe"],
                 creationflags=_NO_WIN,
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             )
-            if ret == 0:
-                self._log("  Running app terminated.")
-                time.sleep(1)
-            else:
-                self._log("  No running instance found.")
-        except Exception as exc:
-            self._log(f"  WARNING: could not check for running app: {exc}")
+            if ret == 0 and not killed:
+                self._log("  Launcher process terminated.")
+                killed = True
+        except Exception:
+            pass
+
+        if killed:
+            time.sleep(2)  # Let file handles release
+        else:
+            self._log("  No running instance found.")
 
     def _do_install(self, install_dir: str, python_exe: str):
         try:
