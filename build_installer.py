@@ -225,6 +225,7 @@ class InstallerApp(tk.Tk):
         self._launcher_path = ""
         self._app_exe_path = ""
         self._build_ui()
+        self._dir_var.set(InstallerApp._detect_install_dir())
         try:
             _icon = tk.PhotoImage(data=ICON_B64)
             self.iconphoto(True, _icon)
@@ -319,6 +320,26 @@ class InstallerApp(tk.Tk):
         d = filedialog.askdirectory(initialdir=init, title="Choose install folder")
         if d:
             self._dir_var.set(d)
+
+    @staticmethod
+    def _detect_install_dir() -> str:
+        """Return the existing install directory from registry, or DEFAULT_DIR."""
+        import winreg, re as _re
+        try:
+            with winreg.OpenKey(
+                    winreg.HKEY_CURRENT_USER,
+                    r"Software\Microsoft\Windows\CurrentVersion\Run") as k:
+                cmd = winreg.QueryValueEx(k, "AmazonFreeShippingMonitor")[0]
+                for m in _re.findall(r'"([^"]+)"', cmd):
+                    if m.lower().endswith((".exe", ".vbs")):
+                        d = os.path.dirname(m)
+                        if os.path.isdir(d):
+                            return d
+        except Exception:
+            pass
+        if os.path.exists(os.path.join(DEFAULT_DIR, "config.json")):
+            return DEFAULT_DIR
+        return DEFAULT_DIR
 
     # ── Thread-safe UI helpers ──────────────────────────────────
 
