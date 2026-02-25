@@ -1,0 +1,41 @@
+{
+  "check_interval_minutes": 180,
+  "notification_cooldown_hours": 24,
+  "email": {
+    "sender": "amazonisraelalert@gmail.com",
+    "recipient": "",
+    "smtp_host": "smtp.gmail.com",
+    "smtp_port": 587
+  },
+  "products": [
+    {
+      "asin": "B00HB2JR4K",
+      "name": "Old Spice Aluminum Free Deodorant for Men, 24/7 Odor Protection, 24/7 Freshness & Lasting Scent, Goes on Clear, Bearglove with Crisp Orchard Scent, 3.0 oz (Pack of 3)",
+      "url": "https://www.amazon.com/dp/B00HB2JR4K"
+    },
+    {
+      "asin": "B08NYMBXG8",
+      "name": "Old Spice Aluminum Free Deodorant For Men, High Endurance, 24/7 Sweat Defense & Odor Protection, 24/7 Freshness & Lasting Scent, Refresh Scent, 3.0 oz (Pack of 3)\n",
+      "url": "https://www.amazon.com/dp/B08NYMBXG8"
+    },
+    {
+      "asin": "B004ULYZ5Q",
+      "name": "Virbac C.E.T.® Enzymatic Toothpaste| Tartar & Plaque Control for Fresh Breath | Pet Dental Care Toothpaste |Vanilla Mint Flavor, 2.5 oz\n",
+      "url": "https://www.amazon.com/dp/B004ULYZ5Q"
+    },
+    {
+      "asin": "B00ON51GT2",
+      "name": "2 Pack, Fulfilled by Amazon, WSDCN G9 120 Volt 40W Halogen Oven Lamp 350°C Oven Light Bulb - Amazon.com",
+      "url": "https://www.amazon.com/dp/B00ON51GT2"
+    }
+  ],
+  "delivery": {
+    "country_code": "IL",
+    "zip": "2221210"
+  },
+  "browser": {
+    "headless": false,
+    "slow_mo_ms": 120,
+    "user_data_dir": "browser_profile"
+  }
+}
