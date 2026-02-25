@@ -513,10 +513,48 @@ class InstallerApp(tk.Tk):
             except Exception:
                 pass
 
+    def _close_running_app(self):
+        """Close the running app (including from tray) before installing.
+
+        Sends a close message first; waits briefly; then force-kills with taskkill.
+        This ensures no file handles are held open when we overwrite the files.
+        """
+        import ctypes, time
+        self._log("\nChecking for a running instance of the app...")
+
+        # Graceful close — find the window and send WM_CLOSE
+        try:
+            _u32 = ctypes.windll.user32
+            hwnd = _u32.FindWindowW(None, "Amazon Israel Free Ship Alert")
+            if hwnd:
+                self._log("  Found running app — sending close signal...")
+                _u32.PostMessageW(hwnd, 0x0010, 0, 0)  # WM_CLOSE
+                time.sleep(2)
+        except Exception:
+            pass
+
+        # Force-kill AmazonIsraelFreeShipAlert.exe (handles tray-only state too)
+        try:
+            ret = subprocess.call(
+                ["taskkill", "/F", "/IM", "AmazonIsraelFreeShipAlert.exe"],
+                creationflags=_NO_WIN,
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            )
+            if ret == 0:
+                self._log("  Running app terminated.")
+                time.sleep(1)
+            else:
+                self._log("  No running instance found.")
+        except Exception as exc:
+            self._log(f"  WARNING: could not check for running app: {exc}")
+
     def _do_install(self, install_dir: str, python_exe: str):
         try:
             # Normalize path (filedialog returns forward-slashes on Windows)
             install_dir = os.path.normpath(install_dir)
+
+            # Close any running instance so files can be safely overwritten
+            self._close_running_app()
 
             # Save existing user config BEFORE extracting files so we can
             # restore products, email, interval, etc. after the update.

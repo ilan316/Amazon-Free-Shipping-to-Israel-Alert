@@ -217,6 +217,12 @@ def _t(key: str, *args) -> str:
     return s.format(*args) if args else s
 
 
+# RTL layout helpers — used throughout to right-align text in Hebrew mode
+_IS_RTL  = _LANG == "he"
+_ANCHOR  = "e" if _IS_RTL else "w"     # widget/text anchor (east = right)
+_JUSTIFY = "right" if _IS_RTL else "left"  # text justification inside widgets
+
+
 # ──────────────────────────────────────────────
 # Status display helpers
 # ──────────────────────────────────────────────
@@ -527,7 +533,8 @@ class App(tk.Tk):
         except Exception:
             pass
 
-        tk.Label(top, text=_t("monitored_products"), font=("Segoe UI", 11, "bold")).pack(anchor="w")
+        tk.Label(top, text=_t("monitored_products"), font=("Segoe UI", 11, "bold"),
+                 anchor=_ANCHOR, justify=_JUSTIFY).pack(anchor=_ANCHOR, fill=tk.X)
 
         cols = ("name", "asin", "status", "last_checked")
         self.tree = ttk.Treeview(top, columns=cols, show="headings", selectmode="browse", height=8)
@@ -538,7 +545,7 @@ class App(tk.Tk):
             ("last_checked", _t("col_last_checked")),
         ]:
             self.tree.heading(_col, text=_txt, command=lambda c=_col: self._sort_by(c))
-        self.tree.column("name",         width=260, anchor="w")
+        self.tree.column("name",         width=260, anchor=_ANCHOR)
         self.tree.column("asin",         width=110, anchor="center")
         self.tree.column("status",       width=175, anchor="center")
         self.tree.column("last_checked", width=140, anchor="center")
@@ -597,9 +604,10 @@ class App(tk.Tk):
 
         hdr = tk.Frame(bot)
         hdr.pack(fill=tk.X)
-        tk.Label(hdr, text=_t("log_label"), font=("Segoe UI", 9, "bold")).pack(side=tk.LEFT)
+        tk.Label(hdr, text=_t("log_label"), font=("Segoe UI", 9, "bold"),
+                 anchor=_ANCHOR).pack(side=tk.LEFT if not _IS_RTL else tk.RIGHT)
         tk.Button(hdr, text=_t("btn_clear"), font=("Segoe UI", 8), relief=tk.FLAT,
-                  command=self._clear_log, cursor="hand2").pack(side=tk.RIGHT)
+                  command=self._clear_log, cursor="hand2").pack(side=tk.LEFT if _IS_RTL else tk.RIGHT)
 
         self._log_text = tk.Text(
             bot, height=10, state=tk.DISABLED,
@@ -618,7 +626,7 @@ class App(tk.Tk):
         # Status bar
         self._status_var = tk.StringVar(value=_t("status_ready"))
         tk.Label(self, textvariable=self._status_var, relief=tk.SUNKEN,
-                 anchor="w", font=("Segoe UI", 8), fg="#555555",
+                 anchor=_ANCHOR, font=("Segoe UI", 8), fg="#555555",
                  padx=8).pack(side=tk.BOTTOM, fill=tk.X)
 
     # ── Table helpers ─────────────────────────
@@ -766,13 +774,15 @@ class App(tk.Tk):
         ent_cfg = {"font": ("Segoe UI", 9), "relief": tk.SOLID, "bd": 1}
         email_var = tk.StringVar(value=email_cfg.get("recipient", ""))
 
-        tk.Label(frm_email, text=_t("email_label"), font=("Segoe UI", 9)).grid(
-            row=0, column=0, sticky="w", padx=(0, 8))
-        tk.Entry(frm_email, textvariable=email_var, width=32, **ent_cfg).grid(
-            row=0, column=1, sticky="ew")
+        tk.Label(frm_email, text=_t("email_label"), font=("Segoe UI", 9),
+                 anchor=_ANCHOR, justify=_JUSTIFY).grid(
+            row=0, column=0, sticky=_ANCHOR, padx=(0, 8))
+        tk.Entry(frm_email, textvariable=email_var, width=32, **ent_cfg,
+                 justify=_JUSTIFY).grid(row=0, column=1, sticky="ew")
         tk.Label(frm_email, text=_t("email_hint"),
-                 font=("Segoe UI", 7), fg="#777777").grid(
-            row=1, column=0, columnspan=2, sticky="w", pady=(4, 0))
+                 font=("Segoe UI", 7), fg="#777777",
+                 anchor=_ANCHOR, justify=_JUSTIFY).grid(
+            row=1, column=0, columnspan=2, sticky=_ANCHOR+"w" if _IS_RTL else "w", pady=(4, 0))
         frm_email.columnconfigure(1, weight=1)
 
         # ── Check interval ──
@@ -803,7 +813,8 @@ class App(tk.Tk):
 
         cooldown_var = tk.StringVar(value=str(init_cooldown))
         tk.Label(frm2, text=_t("cooldown_label"),
-                 font=("Segoe UI", 9)).grid(row=0, column=0, padx=(0, 8), sticky="w")
+                 font=("Segoe UI", 9), anchor=_ANCHOR, justify=_JUSTIFY).grid(
+            row=0, column=0, padx=(0, 8), sticky=_ANCHOR)
         tk.Spinbox(frm2, from_=1, to=720, textvariable=cooldown_var,
                    **spin_cfg).grid(row=0, column=1, padx=(0, 4))
 
@@ -815,7 +826,7 @@ class App(tk.Tk):
         autostart_var = tk.BooleanVar(value=self._get_autostart())
         tk.Checkbutton(frm3, text=_t("startup_checkbox"),
                        variable=autostart_var,
-                       font=("Segoe UI", 9)).pack(anchor="w")
+                       font=("Segoe UI", 9)).pack(anchor=_ANCHOR)
 
         # ── Language ──
         frm_lang = tk.LabelFrame(dlg, text=_t("language_section"), padx=12, pady=8,
@@ -826,12 +837,14 @@ class App(tk.Tk):
         _lang_display = "עברית (Hebrew)" if config.get("language", "he") == "he" else "English"
         lang_var = tk.StringVar(value=_lang_display)
 
-        tk.Label(frm_lang, text=_t("language_label"), font=("Segoe UI", 9)).grid(
-            row=0, column=0, padx=(0, 8), sticky="w")
-        tk.OptionMenu(frm_lang, lang_var, *_lang_options).grid(row=0, column=1, sticky="w")
+        tk.Label(frm_lang, text=_t("language_label"), font=("Segoe UI", 9),
+                 anchor=_ANCHOR, justify=_JUSTIFY).grid(
+            row=0, column=0, padx=(0, 8), sticky=_ANCHOR)
+        tk.OptionMenu(frm_lang, lang_var, *_lang_options).grid(row=0, column=1, sticky=_ANCHOR)
         tk.Label(frm_lang, text=_t("language_restart_note"),
-                 font=("Segoe UI", 7), fg="#777777").grid(
-            row=1, column=0, columnspan=2, sticky="w", pady=(4, 0))
+                 font=("Segoe UI", 7), fg="#777777",
+                 anchor=_ANCHOR, justify=_JUSTIFY).grid(
+            row=1, column=0, columnspan=2, sticky="ew" if _IS_RTL else "w", pady=(4, 0))
 
         def _save():
             try:
@@ -891,7 +904,8 @@ class App(tk.Tk):
 
         tk.Label(dlg,
                  text=_t("add_instruction"),
-                 font=("Segoe UI", 9)).pack(anchor="w", padx=12, pady=(12, 4))
+                 font=("Segoe UI", 9), anchor=_ANCHOR, justify=_JUSTIFY).pack(
+            anchor=_ANCHOR, fill=tk.X, padx=12, pady=(12, 4))
 
         frm = tk.Frame(dlg, padx=12)
         frm.pack(fill=tk.BOTH, expand=True)
@@ -903,7 +917,8 @@ class App(tk.Tk):
         txt.focus_set()
 
         tk.Label(dlg, text=_t("add_example"),
-                 font=("Segoe UI", 8), fg="#777777").pack(anchor="w", padx=12, pady=(3, 0))
+                 font=("Segoe UI", 8), fg="#777777",
+                 anchor=_ANCHOR, justify=_JUSTIFY).pack(anchor=_ANCHOR, padx=12, pady=(3, 0))
 
         def _do_add():
             raw = txt.get("1.0", tk.END).strip()
