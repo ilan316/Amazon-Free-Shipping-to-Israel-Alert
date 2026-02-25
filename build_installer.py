@@ -517,6 +517,23 @@ class InstallerApp(tk.Tk):
         try:
             # Normalize path (filedialog returns forward-slashes on Windows)
             install_dir = os.path.normpath(install_dir)
+
+            # Save existing user config BEFORE extracting files so we can
+            # restore products, email, interval, etc. after the update.
+            _cfg_path_pre = os.path.join(install_dir, "config.json")
+            _existing_cfg = {}
+            if os.path.exists(_cfg_path_pre):
+                try:
+                    with open(_cfg_path_pre, "r", encoding="utf-8") as _fh:
+                        _existing_cfg = _json.load(_fh)
+                    _n = len(_existing_cfg.get("products", []))
+                    if _n:
+                        self._log(f"Existing install detected — preserving {_n} product(s) and settings.\n")
+                    else:
+                        self._log("Existing install detected — preserving settings.\n")
+                except Exception:
+                    _existing_cfg = {}
+
             # Extract files
             self._status("Extracting files\u2026")
             self._log(f"Installing to: {install_dir}\n")
@@ -529,17 +546,31 @@ class InstallerApp(tk.Tk):
                     fh.write(base64.b64decode(b64))
                 self._log(f"  {name}")
 
-            # Patch config.json — reset to clean state for new install
+            # Patch config.json — restore user data if this is an update,
+            # or keep fresh defaults if this is a brand-new install.
             cfg_path = os.path.join(install_dir, "config.json")
             try:
                 with open(cfg_path, "r", encoding="utf-8") as fh:
                     cfg = _json.load(fh)
-                cfg["products"] = []
-                cfg["check_interval_minutes"] = 180
+                # Always reset monitoring_active (don't auto-start on update)
                 cfg["monitoring_active"] = False
+                # Restore user data from previous install (if any)
+                if _existing_cfg.get("products"):
+                    cfg["products"] = _existing_cfg["products"]
+                    self._log(f"  Restored {len(cfg['products'])} product(s) from previous install.")
+                else:
+                    cfg["products"] = []
+                if "check_interval_minutes" in _existing_cfg:
+                    cfg["check_interval_minutes"] = _existing_cfg["check_interval_minutes"]
+                if "notification_cooldown_hours" in _existing_cfg:
+                    cfg["notification_cooldown_hours"] = _existing_cfg["notification_cooldown_hours"]
+                if _existing_cfg.get("email", {}).get("recipient"):
+                    cfg.setdefault("email", {})["recipient"] = _existing_cfg["email"]["recipient"]
+                if "language" in _existing_cfg:
+                    cfg["language"] = _existing_cfg["language"]
                 with open(cfg_path, "w", encoding="utf-8") as fh:
                     _json.dump(cfg, fh, indent=2, ensure_ascii=False)
-                self._log(f"  config.json  (reset for fresh install)")
+                self._log("  config.json  (settings preserved)")
             except Exception as exc:
                 self._log(f"  WARNING: config.json: {exc}")
 

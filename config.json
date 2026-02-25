@@ -1,6 +1,7 @@
 {
   "check_interval_minutes": 180,
   "notification_cooldown_hours": 24,
+  "language": "he",
   "email": {
     "sender": "amazonisraelalert@gmail.com",
     "recipient": "",

@@ -45,17 +45,190 @@ from notifier import send_batch_free_shipping_alert
 from version import __version__
 
 # ──────────────────────────────────────────────
+# Internationalisation (i18n)
+# ──────────────────────────────────────────────
+
+_STRINGS: dict = {
+    "he": {
+        "monitored_products":   "מוצרים במעקב",
+        "col_product_name":     "שם מוצר",
+        "col_asin":             "ASIN",
+        "col_eligible":         "זכאות",
+        "col_last_checked":     "בדיקה אחרונה",
+        "btn_add_product":      "➕  הוסף מוצר",
+        "btn_remove":           "🗑  הסר",
+        "btn_pause":            "⏸  השהה",
+        "btn_resume":           "▶  המשך",
+        "btn_check_now":        "🔍  בדוק עכשיו",
+        "btn_settings":         "⚙  הגדרות",
+        "btn_start_monitoring": "▶  התחל ניטור",
+        "btn_stop_monitoring":  "⏹  עצור ניטור",
+        "log_label":            "יומן",
+        "btn_clear":            "נקה",
+        "status_ready":         "מוכן",
+        "status_free":          "✅ זכאי — משלוח חינם",
+        "status_not_eligible":  "❌ לא זכאי",
+        "status_not_checked":   "— טרם נבדק",
+        "status_paused":        "⏸  מושהה",
+        "settings_title":       "הגדרות",
+        "email_section":        'התראות דוא"ל',
+        "email_label":          'כתובת הדוא"ל שלך:',
+        "email_hint":           "התראות יישלחו לכתובת זו כשיזוהה משלוח חינם",
+        "interval_section":     "מרווח בדיקה",
+        "days":                 "ימים",
+        "hours":                "שעות",
+        "minutes":              "דקות",
+        "cooldown_section":     'השהיית התראת דוא"ל',
+        "cooldown_label":       "שעות בין מיילים חוזרים על אותו מוצר:",
+        "startup_section":      "הפעלה עם Windows",
+        "startup_checkbox":     "הפעל אוטומטית עם הפעלת Windows",
+        "btn_save":             "שמור",
+        "language_section":     "שפה",
+        "language_label":       "שפת ממשק:",
+        "language_restart_note":"השינוי יכנס לתוקף עם הפתיחה הבאה",
+        "add_title":            "הוסף מוצר/ים",
+        "add_instruction":      "הזן כתובות Amazon או מספרי ASIN — שורה אחת לכל מוצר:",
+        "add_example":          "דוגמה:  B08N5WRWNW   או   https://www.amazon.com/dp/B08N5WRWNW",
+        "btn_add":              "הוסף",
+        "invalid_entries":      "ערכים לא תקינים",
+        "no_selection":         "אין בחירה",
+        "select_to_pause":      "בחר מוצר להשהיה/חידוש.",
+        "select_to_remove":     "בחר מוצר להסרה.",
+        "remove_title":         "הסר מוצר",
+        "remove_confirm":       "להסיר ASIN {} מהניטור?",
+        "no_products_title":    "אין מוצרים",
+        "no_products_msg":      "הוסף לפחות מוצר אחד קודם.",
+        "email_required_title": 'נדרש דוא"ל',
+        "email_required_msg":   'אנא הזן כתובת דוא"ל לפני הרצת בדיקה.\n\nלחץ OK לפתיחת ההגדרות.',
+        "busy_title":           "עסוק",
+        "busy_msg":             "בדיקה כבר פועלת.",
+        "email_not_conf_title": 'דוא"ל לא מוגדר',
+        "email_not_conf_msg":   'לא הוגדרה כתובת דוא"ל.\n\nהתראות לא יישלחו עד שתגדיר כתובת.\n\nלחץ ⚙ הגדרות והזן כתובת דוא"ל.',
+        "invalid_number":       "הזן מספרים תקינים.",
+        "interval_too_short":   "המרווח חייב להיות לפחות דקה אחת.",
+        "quit_title":           "יציאה",
+        "quit_msg":             "הניטור פעיל. לעצור ולצאת?",
+        "autostart_error":      "שגיאת הפעלה אוטומטית",
+        "monitoring_every":     "ניטור — כל {} דק'",
+        "monitoring_stopped":   "הניטור הופסק.",
+        "check_running":        "מריץ בדיקה...",
+        "check_complete":       "בדיקה הושלמה.",
+        "free_detected":        "זוהה משלוח חינם!",
+        "tray_open":            "פתח Amazon Israel Free Ship Alert",
+        "tray_exit":            "יציאה",
+        "log_added_products":   "נוספו {} מוצר/ים. לחץ 'בדוק עכשיו' לבדיקת משלוח.",
+        "log_added_status":     "נוספו {} מוצר/ים.",
+        "log_paused_action":    "הושהה: {}",
+        "log_resumed_action":   "חודש: {}",
+        "log_removed_action":   "מוצר הוסר: {}",
+        "settings_saved":       "הגדרות נשמרו. מרווח: {}י {}ש {}ד ({} דק'). השהייה: {}ש.{}{}",
+        "autostart_on_log":     "  הפעלה אוטומטית: פועל.",
+        "autostart_off_log":    "  הפעלה אוטומטית: כבוי.",
+        "email_set_log":        '  דוא"ל: {}.',
+    },
+    "en": {
+        "monitored_products":   "Monitored Products",
+        "col_product_name":     "Product Name",
+        "col_asin":             "ASIN",
+        "col_eligible":         "Eligible",
+        "col_last_checked":     "Last Checked",
+        "btn_add_product":      "➕  Add Product",
+        "btn_remove":           "🗑  Remove",
+        "btn_pause":            "⏸  Pause",
+        "btn_resume":           "▶  Resume",
+        "btn_check_now":        "🔍  Check Now",
+        "btn_settings":         "⚙  Settings",
+        "btn_start_monitoring": "▶  Start Monitoring",
+        "btn_stop_monitoring":  "⏹  Stop Monitoring",
+        "log_label":            "Log",
+        "btn_clear":            "Clear",
+        "status_ready":         "Ready",
+        "status_free":          "✅ Eligible — FREE Shipping",
+        "status_not_eligible":  "❌ Not eligible",
+        "status_not_checked":   "— Not checked yet",
+        "status_paused":        "⏸  Paused",
+        "settings_title":       "Settings",
+        "email_section":        "Email alerts",
+        "email_label":          "Your email address:",
+        "email_hint":           "Alerts will be sent to this address when FREE shipping is detected",
+        "interval_section":     "Check interval",
+        "days":                 "Days",
+        "hours":                "Hours",
+        "minutes":              "Minutes",
+        "cooldown_section":     "Email notification cooldown",
+        "cooldown_label":       "Hours between repeat emails for the same FREE product:",
+        "startup_section":      "Windows startup",
+        "startup_checkbox":     "Start automatically when Windows boots",
+        "btn_save":             "Save",
+        "language_section":     "Language",
+        "language_label":       "Interface language:",
+        "language_restart_note":"Change takes effect on next app launch",
+        "add_title":            "Add Product(s)",
+        "add_instruction":      "Enter one or more Amazon URLs or ASINs — one per line:",
+        "add_example":          "Example:  B08N5WRWNW   or   https://www.amazon.com/dp/B08N5WRWNW",
+        "btn_add":              "Add",
+        "invalid_entries":      "Invalid entries",
+        "no_selection":         "No selection",
+        "select_to_pause":      "Select a product to pause/resume.",
+        "select_to_remove":     "Select a product to remove.",
+        "remove_title":         "Remove Product",
+        "remove_confirm":       "Remove ASIN {} from monitoring?",
+        "no_products_title":    "No Products",
+        "no_products_msg":      "Add at least one product first.",
+        "email_required_title": "Email required",
+        "email_required_msg":   "Please enter your email address before running a check.\n\nClick OK to open Settings.",
+        "busy_title":           "Busy",
+        "busy_msg":             "A check is already running.",
+        "email_not_conf_title": "Email not configured",
+        "email_not_conf_msg":   "No recipient email address is set.\n\nAlerts will not be sent until you configure your email.\n\nPlease click \u2699 Settings and enter your email address.",
+        "invalid_number":       "Enter valid numbers.",
+        "interval_too_short":   "Interval must be at least 1 minute.",
+        "quit_title":           "Quit",
+        "quit_msg":             "Monitoring is running. Stop it and exit?",
+        "autostart_error":      "Autostart Error",
+        "monitoring_every":     "Monitoring — every {} min",
+        "monitoring_stopped":   "Monitoring stopped.",
+        "check_running":        "Running check...",
+        "check_complete":       "Check complete.",
+        "free_detected":        "FREE shipping detected!",
+        "tray_open":            "Open Amazon Israel Free Ship Alert",
+        "tray_exit":            "Exit",
+        "log_added_products":   "Added {} product(s). Click Check Now to fetch names and check shipping.",
+        "log_added_status":     "Added {} product(s).",
+        "log_paused_action":    "Paused: {}",
+        "log_resumed_action":   "Resumed: {}",
+        "log_removed_action":   "Removed product: {}",
+        "settings_saved":       "Settings saved. Interval: {}d {}h {}m ({} min). Cooldown: {}h.{}{}",
+        "autostart_on_log":     "  Auto-start: ON.",
+        "autostart_off_log":    "  Auto-start: OFF.",
+        "email_set_log":        "  Email: {}.",
+    },
+}
+
+try:
+    _LANG: str = cfg_module.load_config().get("language", "he")
+except Exception:
+    _LANG = "he"
+
+
+def _t(key: str, *args) -> str:
+    """Return translated string for the current language, falling back to English."""
+    s = _STRINGS.get(_LANG, _STRINGS["en"]).get(key) or _STRINGS["en"].get(key, key)
+    return s.format(*args) if args else s
+
+
+# ──────────────────────────────────────────────
 # Status display helpers
 # ──────────────────────────────────────────────
 
 STATUS_LABELS = {
-    "FREE":     "✅ Eligible — FREE Shipping",
-    "PAID":     "❌ Not eligible",
-    "NO_SHIP":  "❌ Not eligible",
-    "UNKNOWN":  "❌ Not eligible",
-    "ERROR":    "❌ Not eligible",
-    "—":        "— Not checked yet",
-    "PAUSED":   "⏸  Paused",
+    "FREE":    _t("status_free"),
+    "PAID":    _t("status_not_eligible"),
+    "NO_SHIP": _t("status_not_eligible"),
+    "UNKNOWN": _t("status_not_eligible"),
+    "ERROR":   _t("status_not_eligible"),
+    "—":       _t("status_not_checked"),
+    "PAUSED":  _t("status_paused"),
 }
 
 STATUS_COLORS = {
@@ -354,12 +527,16 @@ class App(tk.Tk):
         except Exception:
             pass
 
-        tk.Label(top, text="Monitored Products", font=("Segoe UI", 11, "bold")).pack(anchor="w")
+        tk.Label(top, text=_t("monitored_products"), font=("Segoe UI", 11, "bold")).pack(anchor="w")
 
         cols = ("name", "asin", "status", "last_checked")
         self.tree = ttk.Treeview(top, columns=cols, show="headings", selectmode="browse", height=8)
-        for _col, _txt in [("name", "Product Name"), ("asin", "ASIN"),
-                            ("status", "Eligible"), ("last_checked", "Last Checked")]:
+        for _col, _txt in [
+            ("name",         _t("col_product_name")),
+            ("asin",         _t("col_asin")),
+            ("status",       _t("col_eligible")),
+            ("last_checked", _t("col_last_checked")),
+        ]:
             self.tree.heading(_col, text=_txt, command=lambda c=_col: self._sort_by(c))
         self.tree.column("name",         width=260, anchor="w")
         self.tree.column("asin",         width=110, anchor="center")
@@ -384,28 +561,28 @@ class App(tk.Tk):
         btn_cfg = {"padx": 9, "pady": 4, "relief": tk.FLAT, "bd": 0,
                    "font": ("Segoe UI", 9), "cursor": "hand2"}
 
-        tk.Button(mid, text="➕  Add Product",
+        tk.Button(mid, text=_t("btn_add_product"),
                   bg="#0066cc", fg="white", activebackground="#0055aa",
                   command=self._add_product, **btn_cfg).pack(side=tk.LEFT, padx=(0, 4))
 
-        tk.Button(mid, text="🗑  Remove",
+        tk.Button(mid, text=_t("btn_remove"),
                   bg="#cc3300", fg="white", activebackground="#aa2200",
                   command=self._remove_product, **btn_cfg).pack(side=tk.LEFT, padx=(0, 4))
 
-        self._pause_btn = tk.Button(mid, text="⏸  Pause",
+        self._pause_btn = tk.Button(mid, text=_t("btn_pause"),
                                     bg="#7a6000", fg="white", activebackground="#5e4800",
                                     command=self._toggle_pause, **btn_cfg)
         self._pause_btn.pack(side=tk.LEFT, padx=(0, 4))
 
-        tk.Button(mid, text="🔍  Check Now",
+        tk.Button(mid, text=_t("btn_check_now"),
                   bg="#4a4a4a", fg="white", activebackground="#333333",
                   command=self._check_now, **btn_cfg).pack(side=tk.LEFT, padx=(0, 4))
 
-        tk.Button(mid, text="⚙  Settings",
+        tk.Button(mid, text=_t("btn_settings"),
                   bg="#555555", fg="white", activebackground="#444444",
                   command=self._show_settings, **btn_cfg).pack(side=tk.LEFT, padx=(0, 16))
 
-        self._start_btn = tk.Button(mid, text="▶  Start Monitoring",
+        self._start_btn = tk.Button(mid, text=_t("btn_start_monitoring"),
                                     bg="#1a7a1a", fg="white", activebackground="#145e14",
                                     command=self._toggle_monitoring, **btn_cfg)
         self._start_btn.pack(side=tk.LEFT, padx=(0, 4))
@@ -420,8 +597,8 @@ class App(tk.Tk):
 
         hdr = tk.Frame(bot)
         hdr.pack(fill=tk.X)
-        tk.Label(hdr, text="Log", font=("Segoe UI", 9, "bold")).pack(side=tk.LEFT)
-        tk.Button(hdr, text="Clear", font=("Segoe UI", 8), relief=tk.FLAT,
+        tk.Label(hdr, text=_t("log_label"), font=("Segoe UI", 9, "bold")).pack(side=tk.LEFT)
+        tk.Button(hdr, text=_t("btn_clear"), font=("Segoe UI", 8), relief=tk.FLAT,
                   command=self._clear_log, cursor="hand2").pack(side=tk.RIGHT)
 
         self._log_text = tk.Text(
@@ -439,7 +616,7 @@ class App(tk.Tk):
         self._log_text.tag_configure("info",  foreground="#d4d4d4")
 
         # Status bar
-        self._status_var = tk.StringVar(value="Ready")
+        self._status_var = tk.StringVar(value=_t("status_ready"))
         tk.Label(self, textvariable=self._status_var, relief=tk.SUNKEN,
                  anchor="w", font=("Segoe UI", 8), fg="#555555",
                  padx=8).pack(side=tk.BOTTOM, fill=tk.X)
@@ -459,8 +636,12 @@ class App(tk.Tk):
         state  = state_module.load_state()
 
         # Update column headers with sort arrows
-        _base = {"name": "Product Name", "asin": "ASIN",
-                 "status": "Eligible", "last_checked": "Last Checked"}
+        _base = {
+            "name":         _t("col_product_name"),
+            "asin":         _t("col_asin"),
+            "status":       _t("col_eligible"),
+            "last_checked": _t("col_last_checked"),
+        }
         for col, base in _base.items():
             arrow = (" ▼" if self._sort_rev else " ▲") if self._sort_col == col else ""
             self.tree.heading(col, text=base + arrow)
@@ -523,35 +704,35 @@ class App(tk.Tk):
             return
         sel = self.tree.selection()
         if not sel:
-            self._pause_btn.configure(text="⏸  Pause")
+            self._pause_btn.configure(text=_t("btn_pause"))
             return
         asin = sel[0]
         config = cfg_module.load_config()
         for p in config.get("products", []):
             if p["asin"] == asin:
                 if p.get("paused", False):
-                    self._pause_btn.configure(text="▶  Resume")
+                    self._pause_btn.configure(text=_t("btn_resume"))
                 else:
-                    self._pause_btn.configure(text="⏸  Pause")
+                    self._pause_btn.configure(text=_t("btn_pause"))
                 return
 
     def _toggle_pause(self):
         sel = self.tree.selection()
         if not sel:
-            messagebox.showinfo("No selection", "Select a product to pause/resume.", parent=self)
+            messagebox.showinfo(_t("no_selection"), _t("select_to_pause"), parent=self)
             return
         asin = sel[0]
         config = cfg_module.load_config()
         for p in config.get("products", []):
             if p["asin"] == asin:
                 p["paused"] = not p.get("paused", False)
-                action = "Paused" if p["paused"] else "Resumed"
-                name   = p.get("name", asin)
+                action = _t("log_paused_action", p.get("name", asin)) if p["paused"] \
+                         else _t("log_resumed_action", p.get("name", asin))
                 break
         cfg_module.save_config(config)
         self._refresh_table()
         self.tree.selection_set(asin)
-        self._append_log(f"{action}: {name}")
+        self._append_log(action)
 
     def _maybe_autostart_monitoring(self):
         """Auto-start monitoring on launch if it was running before shutdown."""
@@ -562,7 +743,7 @@ class App(tk.Tk):
     # ── Settings dialog ───────────────────────
 
     def _show_settings(self):
-        """Opens a dialog to configure email, check interval, and notification cooldown."""
+        """Opens a dialog to configure email, check interval, notification cooldown, and language."""
         config = cfg_module.load_config()
         total_min = config.get("check_interval_minutes", 60)
         init_days = total_min // (24 * 60)
@@ -571,34 +752,33 @@ class App(tk.Tk):
         init_cooldown = config.get("notification_cooldown_hours", 24)
 
         dlg = tk.Toplevel(self)
-        dlg.title("Settings")
+        dlg.title(_t("settings_title"))
         dlg.resizable(False, False)
         dlg.grab_set()  # modal
         dlg.transient(self)
 
         # ── Email alerts ──
         email_cfg = config.get("email", {})
-        frm_email = tk.LabelFrame(dlg, text="Email alerts", padx=12, pady=8,
+        frm_email = tk.LabelFrame(dlg, text=_t("email_section"), padx=12, pady=8,
                                   font=("Segoe UI", 9))
         frm_email.pack(padx=16, pady=(14, 6), fill=tk.X)
 
         ent_cfg = {"font": ("Segoe UI", 9), "relief": tk.SOLID, "bd": 1}
         email_var = tk.StringVar(value=email_cfg.get("recipient", ""))
 
-        tk.Label(frm_email, text="Your email address:", font=("Segoe UI", 9)).grid(
+        tk.Label(frm_email, text=_t("email_label"), font=("Segoe UI", 9)).grid(
             row=0, column=0, sticky="w", padx=(0, 8))
         tk.Entry(frm_email, textvariable=email_var, width=32, **ent_cfg).grid(
             row=0, column=1, sticky="ew")
-        tk.Label(frm_email,
-                 text="Alerts will be sent to this address when FREE shipping is detected",
+        tk.Label(frm_email, text=_t("email_hint"),
                  font=("Segoe UI", 7), fg="#777777").grid(
             row=1, column=0, columnspan=2, sticky="w", pady=(4, 0))
         frm_email.columnconfigure(1, weight=1)
 
         # ── Check interval ──
-        frm = tk.LabelFrame(dlg, text="Check interval", padx=12, pady=8,
+        frm = tk.LabelFrame(dlg, text=_t("interval_section"), padx=12, pady=8,
                              font=("Segoe UI", 9))
-        frm.pack(padx=16, pady=(14, 6), fill=tk.X)
+        frm.pack(padx=16, pady=(0, 6), fill=tk.X)
 
         spin_cfg = {"width": 4, "font": ("Segoe UI", 10), "justify": "center"}
 
@@ -607,9 +787,9 @@ class App(tk.Tk):
         mins_var = tk.StringVar(value=str(init_mins))
 
         for col, label, var, lo, hi in [
-            (0, "Days",    days_var, 0, 365),
-            (2, "Hours",   hrs_var,  0, 23),
-            (4, "Minutes", mins_var, 0, 59),
+            (0, _t("days"),    days_var, 0, 365),
+            (2, _t("hours"),   hrs_var,  0, 23),
+            (4, _t("minutes"), mins_var, 0, 59),
         ]:
             tk.Label(frm, text=label, font=("Segoe UI", 9)).grid(
                 row=0, column=col, padx=(0, 2))
@@ -617,25 +797,41 @@ class App(tk.Tk):
                        **spin_cfg).grid(row=0, column=col + 1, padx=(0, 10))
 
         # ── Notification cooldown ──
-        frm2 = tk.LabelFrame(dlg, text="Email notification cooldown", padx=12, pady=8,
+        frm2 = tk.LabelFrame(dlg, text=_t("cooldown_section"), padx=12, pady=8,
                               font=("Segoe UI", 9))
         frm2.pack(padx=16, pady=(0, 6), fill=tk.X)
 
         cooldown_var = tk.StringVar(value=str(init_cooldown))
-        tk.Label(frm2, text="Hours between repeat emails for the same FREE product:",
+        tk.Label(frm2, text=_t("cooldown_label"),
                  font=("Segoe UI", 9)).grid(row=0, column=0, padx=(0, 8), sticky="w")
         tk.Spinbox(frm2, from_=1, to=720, textvariable=cooldown_var,
                    **spin_cfg).grid(row=0, column=1, padx=(0, 4))
 
         # ── Start with Windows ──
-        frm3 = tk.LabelFrame(dlg, text="Windows startup", padx=12, pady=8,
+        frm3 = tk.LabelFrame(dlg, text=_t("startup_section"), padx=12, pady=8,
                               font=("Segoe UI", 9))
         frm3.pack(padx=16, pady=(0, 6), fill=tk.X)
 
         autostart_var = tk.BooleanVar(value=self._get_autostart())
-        tk.Checkbutton(frm3, text="Start automatically when Windows boots",
+        tk.Checkbutton(frm3, text=_t("startup_checkbox"),
                        variable=autostart_var,
                        font=("Segoe UI", 9)).pack(anchor="w")
+
+        # ── Language ──
+        frm_lang = tk.LabelFrame(dlg, text=_t("language_section"), padx=12, pady=8,
+                                  font=("Segoe UI", 9))
+        frm_lang.pack(padx=16, pady=(0, 6), fill=tk.X)
+
+        _lang_options = ["עברית (Hebrew)", "English"]
+        _lang_display = "עברית (Hebrew)" if config.get("language", "he") == "he" else "English"
+        lang_var = tk.StringVar(value=_lang_display)
+
+        tk.Label(frm_lang, text=_t("language_label"), font=("Segoe UI", 9)).grid(
+            row=0, column=0, padx=(0, 8), sticky="w")
+        tk.OptionMenu(frm_lang, lang_var, *_lang_options).grid(row=0, column=1, sticky="w")
+        tk.Label(frm_lang, text=_t("language_restart_note"),
+                 font=("Segoe UI", 7), fg="#777777").grid(
+            row=1, column=0, columnspan=2, sticky="w", pady=(4, 0))
 
         def _save():
             try:
@@ -644,12 +840,11 @@ class App(tk.Tk):
                 m = max(0, int(mins_var.get()))
                 cooldown = max(1, int(cooldown_var.get()))
             except ValueError:
-                messagebox.showerror("Invalid", "Enter valid numbers.", parent=dlg)
+                messagebox.showerror(_t("settings_title"), _t("invalid_number"), parent=dlg)
                 return
             total = d * 24 * 60 + h * 60 + m
             if total < 1:
-                messagebox.showerror("Invalid",
-                    "Interval must be at least 1 minute.", parent=dlg)
+                messagebox.showerror(_t("settings_title"), _t("interval_too_short"), parent=dlg)
                 return
             # Save recipient email
             addr = email_var.get().strip()
@@ -657,17 +852,25 @@ class App(tk.Tk):
                 config.setdefault("email", {})["recipient"] = addr
             config["check_interval_minutes"] = total
             config["notification_cooldown_hours"] = cooldown
+
+            # Save language
+            lang_key = "he" if lang_var.get().startswith("ע") else "en"
+            lang_changed = lang_key != config.get("language", "he")
+            config["language"] = lang_key
+
             cfg_module.save_config(config)
             self._set_autostart(autostart_var.get())
-            autostart_msg = "  Auto-start: ON." if autostart_var.get() else "  Auto-start: OFF."
-            email_msg = f"  Email: {addr}." if addr else ""
-            self._append_log(
-                f"Settings saved. Interval: {d}d {h}h {m}m ({total} min). "
-                f"Cooldown: {cooldown}h.{email_msg}{autostart_msg}"
-            )
+
+            autostart_msg = _t("autostart_on_log") if autostart_var.get() else _t("autostart_off_log")
+            email_msg = _t("email_set_log", addr) if addr else ""
+            self._append_log(_t("settings_saved", d, h, m, total, cooldown, email_msg, autostart_msg))
+
+            if lang_changed:
+                messagebox.showinfo(_t("language_section"), _t("language_restart_note"), parent=dlg)
+
             dlg.destroy()
 
-        tk.Button(dlg, text="Save", command=_save,
+        tk.Button(dlg, text=_t("btn_save"), command=_save,
                   bg="#0066cc", fg="white", relief=tk.FLAT,
                   padx=16, pady=4, font=("Segoe UI", 9),
                   cursor="hand2").pack(pady=(4, 14))
@@ -680,14 +883,14 @@ class App(tk.Tk):
         Product names are fetched automatically in background.
         """
         dlg = tk.Toplevel(self)
-        dlg.title("Add Product(s)")
+        dlg.title(_t("add_title"))
         dlg.resizable(True, True)
         dlg.grab_set()
         dlg.transient(self)
         dlg.minsize(500, 280)
 
         tk.Label(dlg,
-                 text="Enter one or more Amazon URLs or ASINs — one per line:",
+                 text=_t("add_instruction"),
                  font=("Segoe UI", 9)).pack(anchor="w", padx=12, pady=(12, 4))
 
         frm = tk.Frame(dlg, padx=12)
@@ -699,7 +902,7 @@ class App(tk.Tk):
         sb.pack(side=tk.LEFT, fill=tk.Y)
         txt.focus_set()
 
-        tk.Label(dlg, text="Example:  B08N5WRWNW   or   https://www.amazon.com/dp/B08N5WRWNW",
+        tk.Label(dlg, text=_t("add_example"),
                  font=("Segoe UI", 8), fg="#777777").pack(anchor="w", padx=12, pady=(3, 0))
 
         def _do_add():
@@ -724,20 +927,18 @@ class App(tk.Tk):
             self._refresh_table()
 
             if added_asins:
-                self._append_log(
-                    f"Added {len(added_asins)} product(s). "
-                    "Click Check Now to fetch names and check shipping.")
-                self._status_var.set(f"Added {len(added_asins)} product(s).")
+                self._append_log(_t("log_added_products", len(added_asins)))
+                self._status_var.set(_t("log_added_status", len(added_asins)))
 
             if errors:
                 messagebox.showwarning(
-                    "Invalid entries",
+                    _t("invalid_entries"),
                     f"{len(errors)} invalid entr{'y' if len(errors) == 1 else 'ies'}:\n\n" +
                     "\n".join(errors[:10]) + ("\n…" if len(errors) > 10 else ""),
                     parent=self,
                 )
 
-        tk.Button(dlg, text="Add", command=_do_add,
+        tk.Button(dlg, text=_t("btn_add"), command=_do_add,
                   bg="#0066cc", fg="white", relief=tk.FLAT,
                   padx=16, pady=4, font=("Segoe UI", 9),
                   cursor="hand2").pack(pady=(6, 12))
@@ -745,34 +946,33 @@ class App(tk.Tk):
     def _remove_product(self):
         sel = self.tree.selection()
         if not sel:
-            messagebox.showinfo("No selection", "Select a product to remove.", parent=self)
+            messagebox.showinfo(_t("no_selection"), _t("select_to_remove"), parent=self)
             return
         asin = sel[0]
-        if messagebox.askyesno("Remove Product",
-                               f"Remove ASIN {asin} from monitoring?", parent=self):
+        if messagebox.askyesno(_t("remove_title"),
+                               _t("remove_confirm", asin), parent=self):
             cfg_module.remove_product(asin)
             self._refresh_table()
-            self._append_log(f"Removed product: {asin}")
+            self._append_log(_t("log_removed_action", asin))
 
     def _check_now(self):
         config = cfg_module.load_config()
         if not config.get("products"):
-            messagebox.showinfo("No Products", "Add at least one product first.", parent=self)
+            messagebox.showinfo(_t("no_products_title"), _t("no_products_msg"), parent=self)
             return
         if not config.get("email", {}).get("recipient"):
             messagebox.showwarning(
-                "Email required",
-                "Please enter your email address before running a check.\n\n"
-                "Click OK to open Settings.",
+                _t("email_required_title"),
+                _t("email_required_msg"),
                 parent=self,
             )
             self._show_settings()
             return
         if self._monitor_thread and self._monitor_thread.is_alive():
-            messagebox.showinfo("Busy", "A check is already running.", parent=self)
+            messagebox.showinfo(_t("busy_title"), _t("busy_msg"), parent=self)
             return
 
-        self._status_var.set("Running check...")
+        self._status_var.set(_t("check_running"))
         self._append_log("Manual check started...")
 
         def run():
@@ -836,9 +1036,9 @@ class App(tk.Tk):
     def _toggle_monitoring(self):
         if self._monitor_thread and self._monitor_thread.is_alive():
             self._stop_event.set()
-            self._start_btn.configure(text="▶  Start Monitoring",
+            self._start_btn.configure(text=_t("btn_start_monitoring"),
                                       bg="#1a7a1a", activebackground="#145e14")
-            self._status_var.set("Monitoring stopped.")
+            self._status_var.set(_t("monitoring_stopped"))
             self._interval_var.set("")
             _cfg = cfg_module.load_config()
             _cfg["monitoring_active"] = False
@@ -846,15 +1046,13 @@ class App(tk.Tk):
         else:
             config = cfg_module.load_config()
             if not config.get("products"):
-                messagebox.showinfo("No Products", "Add at least one product first.", parent=self)
+                messagebox.showinfo(_t("no_products_title"), _t("no_products_msg"), parent=self)
                 return
             email_cfg = config.get("email", {})
             if not email_cfg.get("recipient"):
                 messagebox.showwarning(
-                    "Email not configured",
-                    "No recipient email address is set.\n\n"
-                    "Alerts will not be sent until you configure your email.\n\n"
-                    "Please click \u2699 Settings and enter your email address.",
+                    _t("email_not_conf_title"),
+                    _t("email_not_conf_msg"),
                     parent=self)
                 self._show_settings()
                 return
@@ -863,10 +1061,10 @@ class App(tk.Tk):
                 self._log_queue, self._refresh_table, self._stop_event
             )
             self._monitor_thread.start()
-            self._start_btn.configure(text="⏹  Stop Monitoring",
+            self._start_btn.configure(text=_t("btn_stop_monitoring"),
                                       bg="#cc3300", activebackground="#aa2200")
             interval = config.get("check_interval_minutes", 60)
-            self._status_var.set(f"Monitoring — every {interval} min")
+            self._status_var.set(_t("monitoring_every", interval))
             config["monitoring_active"] = True
             cfg_module.save_config(config)
 
@@ -896,11 +1094,11 @@ class App(tk.Tk):
                     self._interval_var.set(f"Next: {msg[len('__next_run__'):]}")
                 elif msg.startswith("__refresh__"):
                     self._refresh_table()
-                    self._status_var.set("Check complete.")
+                    self._status_var.set(_t("check_complete"))
                 elif msg.startswith("__log_free__"):
                     self._append_log(msg[len("__log_free__"):], "free")
                     self._refresh_table()
-                    self._status_var.set("FREE shipping detected!")
+                    self._status_var.set(_t("free_detected"))
                 elif msg.startswith("__log_error__"):
                     self._append_log(msg[len("__log_error__"):], "error")
                     self._status_var.set("Error — see log.")
@@ -912,7 +1110,7 @@ class App(tk.Tk):
                     if "FREE" in msg and "detected" in msg:
                         self._append_log(msg, "free")
                         self._refresh_table()
-                        self._status_var.set("FREE shipping detected!")
+                        self._status_var.set(_t("free_detected"))
                     elif "error" in msg.lower():
                         self._append_log(msg, "error")
                     else:
@@ -930,8 +1128,8 @@ class App(tk.Tk):
             self.withdraw()  # hide to tray — monitoring keeps running
         else:
             if self._monitor_thread and self._monitor_thread.is_alive():
-                if not messagebox.askyesno("Quit",
-                                           "Monitoring is running. Stop it and exit?",
+                if not messagebox.askyesno(_t("quit_title"),
+                                           _t("quit_msg"),
                                            parent=self):
                     return
                 self._stop_event.set()
@@ -970,9 +1168,9 @@ class App(tk.Tk):
             return
         try:
             menu = pystray.Menu(
-                pystray.MenuItem('Open Amazon Israel Free Ship Alert', self._tray_open, default=True),
+                pystray.MenuItem(_t("tray_open"), self._tray_open, default=True),
                 pystray.Menu.SEPARATOR,
-                pystray.MenuItem('Exit', self._tray_exit),
+                pystray.MenuItem(_t("tray_exit"), self._tray_exit),
             )
             self._tray_icon = pystray.Icon(
                 'AmazonMonitor',
@@ -1045,7 +1243,7 @@ class App(tk.Tk):
                     except FileNotFoundError:
                         pass
         except Exception as exc:
-            messagebox.showerror("Autostart Error",
+            messagebox.showerror(_t("autostart_error"),
                                  f"Could not update startup entry:\n{exc}",
                                  parent=self)
 
