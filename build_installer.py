@@ -187,6 +187,15 @@ import threading
 DEFAULT_DIR = os.path.join(os.path.expanduser("~"), "AmazonIsraelFreeShipAlert")
 _NO_WIN = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
+# Command-line args for auto-update mode (launched by the running app)
+_ARGV_DIR = ""
+_ARGV_AUTO_UPDATE = False
+for _arg in sys.argv[1:]:
+    if _arg.startswith("--dir="):
+        _ARGV_DIR = _arg[6:]
+    elif _arg == "--auto-update":
+        _ARGV_AUTO_UPDATE = True
+
 
 def _find_python():
     """Return a usable python executable path, or '' if not found."""
@@ -225,7 +234,10 @@ class InstallerApp(tk.Tk):
         self._launcher_path = ""
         self._app_exe_path = ""
         self._build_ui()
-        self._dir_var.set(InstallerApp._detect_install_dir())
+        if _ARGV_DIR:
+            self._dir_var.set(_ARGV_DIR)
+        else:
+            self._dir_var.set(InstallerApp._detect_install_dir())
         try:
             _icon = tk.PhotoImage(data=ICON_B64)
             self.iconphoto(True, _icon)
@@ -233,6 +245,8 @@ class InstallerApp(tk.Tk):
         except Exception:
             pass
         self.protocol("WM_DELETE_WINDOW", self._on_close)
+        if _ARGV_AUTO_UPDATE:
+            self.after(300, self._start_install)  # auto-start install (no user interaction needed)
 
     # ── UI ─────────────────────────────────────────────────────
 
@@ -586,19 +600,6 @@ class InstallerApp(tk.Tk):
             except Exception:
                 pass
 
-        # Also kill AmazonIsraelFreeShipAlert.exe in case it is still running
-        try:
-            ret = subprocess.call(
-                ["taskkill", "/F", "/IM", "AmazonIsraelFreeShipAlert.exe"],
-                creationflags=_NO_WIN,
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-            )
-            if ret == 0 and not killed:
-                self._log("  Launcher process terminated.")
-                killed = True
-        except Exception:
-            pass
-
         if killed:
             time.sleep(2)  # Let file handles release
         else:
@@ -646,8 +647,9 @@ class InstallerApp(tk.Tk):
             try:
                 with open(cfg_path, "r", encoding="utf-8") as fh:
                     cfg = _json.load(fh)
-                # Always reset monitoring_active (don't auto-start on update)
-                cfg["monitoring_active"] = False
+                # Preserve monitoring_active from previous install so monitoring
+                # resumes automatically after an update if it was running before.
+                cfg["monitoring_active"] = bool(_existing_cfg.get("monitoring_active", False))
                 # Restore user data from previous install (if any)
                 if _existing_cfg.get("products"):
                     cfg["products"] = _existing_cfg["products"]
@@ -894,9 +896,9 @@ def _build_exe(install_py_path: str, icon_path: str = ""):
         print("To build the .exe:  pip install pyinstaller  then re-run.")
         return
 
-    build_tmp = os.path.join(PROJECT, "_build_installer_tmp")
-    setup_name = f"AmazonIsraelFreeShipAlert_Setup_v{VERSION}"
-    print(f"\nBuilding {setup_name}.exe ...")
+    build_tmp  = os.path.join(PROJECT, "_build_installer_tmp")
+    setup_name = "AmazonIsraelFreeShipAlert"
+    print(f"\nBuilding {setup_name}.exe (installer) ...")
     args = [
         "--onefile",
         "--name",      setup_name,

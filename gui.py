@@ -19,6 +19,7 @@ else:
 import asyncio
 import queue
 import re
+import subprocess
 import threading
 import urllib.request
 import tkinter as tk
@@ -125,6 +126,12 @@ _STRINGS: dict = {
         "autostart_on_log":     "  הפעלה אוטומטית: פועל.",
         "autostart_off_log":    "  הפעלה אוטומטית: כבוי.",
         "email_set_log":        '  דוא"ל: {}.',
+        "update_available_title": "עדכון זמין",
+        "update_available_msg":   "גרסה {} זמינה (גרסה נוכחית: {}).\nלהוריד ולהתקין את העדכון?",
+        "btn_update_now":         "הורד עדכון כעת",
+        "btn_update_later":       "מאוחר יותר",
+        "downloading_update":     "מוריד עדכון...",
+        "update_failed":          "הורדת העדכון נכשלה: {}",
     },
     "en": {
         "monitored_products":   "Monitored Products",
@@ -202,6 +209,12 @@ _STRINGS: dict = {
         "autostart_on_log":     "  Auto-start: ON.",
         "autostart_off_log":    "  Auto-start: OFF.",
         "email_set_log":        "  Email: {}.",
+        "update_available_title": "Update Available",
+        "update_available_msg":   "Version {} is available (current: {}).\nDownload and install the update?",
+        "btn_update_now":         "Download Update Now",
+        "btn_update_later":       "Later",
+        "downloading_update":     "Downloading update...",
+        "update_failed":          "Update download failed: {}",
     },
 }
 
@@ -464,6 +477,7 @@ class App(tk.Tk):
         self._init_tray()
         self._sync_autostart()                          # upgrade registry to VBS if needed
         self.after(800, self._maybe_autostart_monitoring)  # resume monitoring if it was running
+        self.after(2000, self._check_for_updates)       # check for newer version on startup
 
     # ── UI construction ──────────────────────
 
@@ -1266,6 +1280,158 @@ class App(tk.Tk):
         """If autostart is registered, silently re-register using the current (VBS) format."""
         if self._get_autostart():
             self._set_autostart(True)
+
+    # ── Auto-update ───────────────────────────
+
+    _GITHUB_API = (
+        "https://api.github.com/repos/"
+        "ilan316/Amazon-Free-Shipping-to-Israel-Alert/releases/latest"
+    )
+
+    def _check_for_updates(self):
+        """Fetch latest GitHub release in a background thread; show dialog if newer."""
+        def _check():
+            import json as _json, ssl
+            try:
+                ctx = ssl.create_default_context()
+                ctx.check_hostname = False
+                ctx.verify_mode = ssl.CERT_NONE
+                req = urllib.request.Request(
+                    self._GITHUB_API,
+                    headers={"User-Agent": "AmazonIsraelFreeShipAlert"},
+                )
+                with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
+                    data = _json.loads(resp.read().decode())
+            except Exception:
+                return  # silent — network errors are not worth surfacing
+
+            tag = data.get("tag_name", "").lstrip("v")
+            if not tag:
+                return
+
+            download_url = ""
+            for asset in data.get("assets", []):
+                if asset.get("name") == "AmazonIsraelFreeShipAlert.exe":
+                    download_url = asset.get("browser_download_url", "")
+                    break
+            if not download_url:
+                return
+
+            try:
+                current = tuple(int(x) for x in __version__.split("."))
+                latest  = tuple(int(x) for x in tag.split("."))
+            except ValueError:
+                return
+
+            if latest > current:
+                self.after(0, self._show_update_dialog, tag, download_url)
+
+        threading.Thread(target=_check, daemon=True).start()
+
+    def _show_update_dialog(self, version: str, download_url: str):
+        """Show a modal dialog offering to download the new version."""
+        dlg = tk.Toplevel(self)
+        dlg.title(_t("update_available_title"))
+        dlg.resizable(False, False)
+        dlg.transient(self)
+        dlg.grab_set()
+        try:
+            dlg.iconbitmap(os.path.join(os.getcwd(), "icon.ico"))
+        except Exception:
+            pass
+
+        msg_text = _t("update_available_msg", version, __version__)
+        tk.Label(
+            dlg, text=msg_text,
+            font=("Segoe UI", 10), padx=24, pady=20,
+            justify="right" if _IS_RTL else "left",
+        ).pack()
+
+        btn_row = tk.Frame(dlg, padx=20, pady=(0, 18))
+        btn_row.pack()
+
+        def _on_now():
+            dlg.destroy()
+            self._start_update_download(download_url)
+
+        tk.Button(
+            btn_row, text=_t("btn_update_now"),
+            bg="#0066cc", fg="white", relief=tk.FLAT,
+            font=("Segoe UI", 10, "bold"), padx=16, pady=6,
+            cursor="hand2", command=_on_now,
+        ).pack(side=tk.LEFT, padx=(0, 8))
+
+        tk.Button(
+            btn_row, text=_t("btn_update_later"),
+            relief=tk.FLAT, font=("Segoe UI", 10),
+            padx=16, pady=6, cursor="hand2",
+            command=dlg.destroy,
+        ).pack(side=tk.LEFT)
+
+        dlg.update_idletasks()
+        px, py = self.winfo_x(), self.winfo_y()
+        pw, ph = self.winfo_width(), self.winfo_height()
+        dw, dh = dlg.winfo_reqwidth(), dlg.winfo_reqheight()
+        dlg.geometry(f"+{px + (pw - dw) // 2}+{py + (ph - dh) // 2}")
+
+    def _start_update_download(self, download_url: str):
+        """Download the new installer to a temp file, then launch it."""
+        install_dir = os.getcwd()
+        self._append_log(_t("downloading_update"))
+        self._status_var.set(_t("downloading_update"))
+
+        def _download():
+            import tempfile, ssl
+            try:
+                ctx = ssl.create_default_context()
+                ctx.check_hostname = False
+                ctx.verify_mode = ssl.CERT_NONE
+                req = urllib.request.Request(
+                    download_url,
+                    headers={"User-Agent": "AmazonIsraelFreeShipAlert"},
+                )
+                fd, tmp_path = tempfile.mkstemp(
+                    suffix=".exe", prefix="AmazonUpdate_")
+                os.close(fd)
+                with urllib.request.urlopen(req, timeout=120, context=ctx) as resp:
+                    total = int(resp.headers.get("Content-Length", 0))
+                    downloaded = 0
+                    with open(tmp_path, "wb") as fh:
+                        while True:
+                            chunk = resp.read(65536)
+                            if not chunk:
+                                break
+                            fh.write(chunk)
+                            downloaded += len(chunk)
+                            if total > 0:
+                                pct = downloaded * 100 // total
+                                self.after(
+                                    0, self._status_var.set,
+                                    f"{_t('downloading_update')} {pct}%",
+                                )
+            except Exception as exc:
+                self.after(0, self._append_log,
+                           _t("update_failed", str(exc)), "error")
+                return
+            self.after(0, self._launch_update, tmp_path, install_dir)
+
+        threading.Thread(target=_download, daemon=True).start()
+
+    def _launch_update(self, installer_path: str, install_dir: str):
+        """Launch the downloaded installer and fully close this app."""
+        try:
+            subprocess.Popen(
+                [installer_path, f"--dir={install_dir}", "--auto-update"],
+                creationflags=0x00000008 | 0x08000000,  # DETACHED_PROCESS | CREATE_NO_WINDOW
+            )
+        except Exception as exc:
+            self._append_log(f"Failed to launch installer: {exc}", "error")
+            return
+        if self._tray_icon:
+            self._tray_icon.stop()
+        if self._monitor_thread and self._monitor_thread.is_alive():
+            self._stop_event.set()
+        self.destroy()
 
 
 # ──────────────────────────────────────────────
