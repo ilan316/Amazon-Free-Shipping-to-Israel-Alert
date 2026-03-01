@@ -344,9 +344,12 @@ class InstallerApp(tk.Tk):
                     winreg.HKEY_CURRENT_USER,
                     r"Software\Microsoft\Windows\CurrentVersion\Run") as k:
                 cmd = winreg.QueryValueEx(k, "AmazonFreeShippingMonitor")[0]
+                sysroot = os.environ.get("SystemRoot", r"C:\Windows").lower()
                 for m in _re.findall(r'"([^"]+)"', cmd):
                     if m.lower().endswith((".exe", ".vbs")):
                         d = os.path.dirname(m)
+                        if d.lower().startswith(sysroot):
+                            continue
                         if os.path.isdir(d):
                             return d
         except Exception:
