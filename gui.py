@@ -132,6 +132,9 @@ _STRINGS: dict = {
         "btn_update_later":       "מאוחר יותר",
         "downloading_update":     "מוריד עדכון...",
         "update_failed":          "הורדת העדכון נכשלה: {}",
+        "btn_copy_link":          "🔗  העתק קישור אפיליאט",
+        "log_link_copied":        "קישור אפיליאט הועתק ללוח",
+        "log_no_affiliate_tag":   "קוד אפיליאט לא מוגדר",
     },
     "en": {
         "monitored_products":   "Monitored Products",
@@ -215,6 +218,9 @@ _STRINGS: dict = {
         "btn_update_later":       "Later",
         "downloading_update":     "Downloading update...",
         "update_failed":          "Update download failed: {}",
+        "btn_copy_link":          "🔗  Copy Affiliate Link",
+        "log_link_copied":        "Affiliate link copied to clipboard",
+        "log_no_affiliate_tag":   "Affiliate tag not configured",
     },
 }
 
@@ -708,17 +714,21 @@ class App(tk.Tk):
         self._on_tree_select()
 
     def _on_product_double_click(self, event):
-        """Double-clicking a product row opens its Amazon page in the system browser."""
+        """Double-clicking a product row opens its affiliate link (or regular URL) in the browser."""
         import webbrowser
         sel = self.tree.selection()
         if not sel:
             return
         asin = sel[0]
-        config = cfg_module.load_config()
-        for p in config.get("products", []):
-            if p["asin"] == asin:
-                webbrowser.open(p.get("url", f"https://www.amazon.com/dp/{asin}"))
-                return
+        tag = os.environ.get("AMAZON_AFFILIATE_TAG", "").strip()
+        if tag:
+            webbrowser.open(f"https://www.amazon.com/dp/{asin}?tag={tag}")
+        else:
+            config = cfg_module.load_config()
+            for p in config.get("products", []):
+                if p["asin"] == asin:
+                    webbrowser.open(p.get("url", f"https://www.amazon.com/dp/{asin}"))
+                    return
 
     def _on_tree_select(self, event=None):
         """Update Pause button label based on selected product's paused state."""

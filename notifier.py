@@ -65,6 +65,7 @@ def send_batch_free_shipping_alert(config: dict, items: list):
     if not items:
         return
 
+    affiliate_tag = os.environ.get("AMAZON_AFFILIATE_TAG", "").strip()
     checked_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     if len(items) == 1:
@@ -80,10 +81,12 @@ def send_batch_free_shipping_alert(config: dict, items: list):
         asin = p.get("asin", "")
         name = p.get("name", asin)
         url  = p.get("url", f"https://www.amazon.com/dp/{asin}")
+        aff_line = [f"Affiliate: https://www.amazon.com/dp/{asin}?tag={affiliate_tag}"] if affiliate_tag else []
         lines += [
             f"Product : {name}",
             f"ASIN    : {asin}",
             f"URL     : {url}",
+            *aff_line,
             f"Shipping: {item['shipping_text']}",
             "",
         ]
@@ -98,6 +101,14 @@ def send_batch_free_shipping_alert(config: dict, items: list):
         name = p.get("name", asin)
         url  = p.get("url", f"https://www.amazon.com/dp/{asin}")
         shipping = item["shipping_text"].replace("<", "&lt;").replace(">", "&gt;")
+        aff_row = ""
+        if affiliate_tag:
+            aff_url = f"https://www.amazon.com/dp/{asin}?tag={affiliate_tag}"
+            aff_row = f"""
+      <tr>
+        <td style="padding:2px 12px 2px 0; font-weight:bold;">Affiliate</td>
+        <td><a href="{aff_url}" style="color:#e47911;">{aff_url}</a></td>
+      </tr>"""
         product_rows += f"""
   <div style="border:1px solid #e0e0e0; border-radius:6px; padding:12px 16px; margin-bottom:14px;">
     <p style="margin:0 0 6px 0; font-size:15px; font-weight:bold;">{name}</p>
@@ -109,7 +120,7 @@ def send_batch_free_shipping_alert(config: dict, items: list):
       <tr>
         <td style="padding:2px 12px 2px 0; font-weight:bold;">Link</td>
         <td><a href="{url}" style="color:#0066cc;">{url}</a></td>
-      </tr>
+      </tr>{aff_row}
     </table>
     <pre style="background:#f5f5f5; padding:8px; border-radius:4px; white-space:pre-wrap;
                 font-size:12px; margin:8px 0 0 0;">{shipping}</pre>

@@ -184,7 +184,7 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import threading
 
-DEFAULT_DIR = os.path.join(os.path.expanduser("~"), "AmazonIsraelFreeShipAlert")
+DEFAULT_DIR = os.path.join(os.path.expanduser("~"), "Downloads", "amazon to israel free alert")
 _NO_WIN = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 # Command-line args for auto-update mode (launched by the running app)
