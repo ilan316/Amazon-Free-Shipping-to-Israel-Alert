@@ -17,6 +17,51 @@ from email.mime.text import MIMEText
 
 logger = logging.getLogger(__name__)
 
+# ── Localized strings ─────────────────────────────────────────────────────────
+_STRINGS = {
+    "he": {
+        "subject_single":   "משלוח חינם לישראל: {name}",
+        "subject_multi":    "משלוח חינם לישראל: {n} מוצרים",
+        "header_title":     "🚚 משלוח חינם לישראל!",
+        "header_sub":       "נמצאו {n} מוצרים עם משלוח חינם",
+        "header_sub1":      "נמצא מוצר עם משלוח חינם",
+        "btn_buy":          "לקנייה ←",
+        "footer":           "נבדק: {checked_at} · Amazon Free Shipping Monitor",
+        "aod_note":         "⚠️ המשלוח החינמי נמצא תחת <strong>\"כל אפשרויות הקנייה\"</strong>.<br>"
+                            "פתח את עמוד המוצר &larr; לחץ <strong>\"ראה את כל אפשרויות הקנייה\"</strong>"
+                            " &larr; בחר את ההצעה עם משלוח חינם.",
+        "aod_plain":        "הערה: המשלוח החינמי נמצא תחת 'כל אפשרויות הקנייה'. "
+                            "פתח את הקישור ← לחץ 'ראה את כל אפשרויות הקנייה' ← בחר הצעה עם משלוח חינם.",
+        "plain_header":     "התראת משלוח חינם לישראל!\n",
+        "plain_product":    "מוצר",
+        "plain_url":        "קישור",
+        "plain_footer":     "נבדק: {checked_at}",
+    },
+    "en": {
+        "subject_single":   "FREE Shipping to Israel: {name}",
+        "subject_multi":    "FREE Shipping to Israel: {n} products found",
+        "header_title":     "🚚 FREE Shipping to Israel!",
+        "header_sub":       "{n} products with free shipping found",
+        "header_sub1":      "1 product with free shipping found",
+        "btn_buy":          "Shop Now →",
+        "footer":           "Checked at: {checked_at} · Amazon Free Shipping Monitor",
+        "aod_note":         "⚠️ Free shipping found in <strong>All Buying Options</strong>.<br>"
+                            "Open the product page &rarr; click <strong>&ldquo;See All Buying Options&rdquo;</strong>"
+                            " &rarr; select the offer with free shipping.",
+        "aod_plain":        "NOTE: Found in All Buying Options — open the link, "
+                            "click 'See All Buying Options', select the free-shipping offer.",
+        "plain_header":     "FREE Shipping to Israel Alert!\n",
+        "plain_product":    "Product",
+        "plain_url":        "URL    ",
+        "plain_footer":     "Checked at: {checked_at}",
+    },
+}
+
+
+def _t(lang: str, key: str, **kw) -> str:
+    s = _STRINGS.get(lang, _STRINGS["en"]).get(key, _STRINGS["en"].get(key, ""))
+    return s.format(**kw) if kw else s
+
 
 def _smtp_send(config: dict, subject: str, text_body: str, html_body: str):
     """Internal helper — connects to SMTP and sends the message."""
@@ -60,81 +105,157 @@ def send_batch_free_shipping_alert(config: dict, items: list):
     """
     Sends ONE email listing all FREE-shipping products.
 
-    items — list of dicts: [{"product": {...}, "shipping_text": "..."}, ...]
+    items — list of dicts: [{"product": {...}, "shipping_text": "...", "found_in_aod": bool}, ...]
     """
     if not items:
         return
 
+    lang          = config.get("language", "he")
     affiliate_tag = os.environ.get("AMAZON_AFFILIATE_TAG", "").strip()
-    checked_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    checked_at    = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    is_rtl        = lang == "he"
+    txt_dir       = 'dir="rtl"' if is_rtl else ""
+    txt_align     = "right"     if is_rtl else "left"
+    n             = len(items)
 
-    if len(items) == 1:
-        name    = items[0]["product"].get("name", items[0]["product"].get("asin", ""))
-        subject = f"FREE Shipping to Israel: {name}"
-    else:
-        subject = f"FREE Shipping to Israel: {len(items)} products found"
+    # ── Subject ──────────────────────────────────────────────
+    first_name = items[0]["product"].get("name", items[0]["product"].get("asin", ""))
+    subject = (
+        _t(lang, "subject_single", name=first_name) if n == 1
+        else _t(lang, "subject_multi", n=n)
+    )
 
-    # ── plain-text body ──────────────────────────────────────
-    lines = ["FREE Shipping to Israel Alert!\n"]
+    # ── Plain-text body ───────────────────────────────────────
+    lines = [_t(lang, "plain_header")]
     for item in items:
         p    = item["product"]
         asin = p.get("asin", "")
         name = p.get("name", asin)
-        url  = p.get("url", f"https://www.amazon.com/dp/{asin}")
-        aff_line = [f"Affiliate: https://www.amazon.com/dp/{asin}?tag={affiliate_tag}"] if affiliate_tag else []
+        product_url = (
+            f"https://www.amazon.com/dp/{asin}?tag={affiliate_tag}"
+            if affiliate_tag else
+            f"https://www.amazon.com/dp/{asin}"
+        )
+        aod_line = [_t(lang, "aod_plain")] if item.get("found_in_aod") else []
         lines += [
-            f"Product : {name}",
+            f"{_t(lang, 'plain_product')} : {name}",
             f"ASIN    : {asin}",
-            f"URL     : {url}",
-            *aff_line,
-            f"Shipping: {item['shipping_text']}",
+            f"{_t(lang, 'plain_url')} : {product_url}",
+            *aod_line,
             "",
         ]
-    lines += [f"Checked at: {checked_at}", "", "---", "Amazon Free Shipping Monitor"]
+    lines.append(_t(lang, "plain_footer", checked_at=checked_at))
     text_body = "\n".join(lines)
 
-    # ── HTML body ────────────────────────────────────────────
-    product_rows = ""
+    # ── HTML product cards ────────────────────────────────────
+    product_cards = ""
     for item in items:
         p    = item["product"]
         asin = p.get("asin", "")
         name = p.get("name", asin)
-        url  = p.get("url", f"https://www.amazon.com/dp/{asin}")
-        shipping = item["shipping_text"].replace("<", "&lt;").replace(">", "&gt;")
-        aff_row = ""
-        if affiliate_tag:
-            aff_url = f"https://www.amazon.com/dp/{asin}?tag={affiliate_tag}"
-            aff_row = f"""
-      <tr>
-        <td style="padding:2px 12px 2px 0; font-weight:bold;">Affiliate</td>
-        <td><a href="{aff_url}" style="color:#e47911;">{aff_url}</a></td>
-      </tr>"""
-        product_rows += f"""
-  <div style="border:1px solid #e0e0e0; border-radius:6px; padding:12px 16px; margin-bottom:14px;">
-    <p style="margin:0 0 6px 0; font-size:15px; font-weight:bold;">{name}</p>
-    <table style="border-collapse:collapse; font-size:13px; color:#444;">
-      <tr>
-        <td style="padding:2px 12px 2px 0; font-weight:bold;">ASIN</td>
-        <td>{asin}</td>
-      </tr>
-      <tr>
-        <td style="padding:2px 12px 2px 0; font-weight:bold;">Link</td>
-        <td><a href="{url}" style="color:#0066cc;">{url}</a></td>
-      </tr>{aff_row}
-    </table>
-    <pre style="background:#f5f5f5; padding:8px; border-radius:4px; white-space:pre-wrap;
-                font-size:12px; margin:8px 0 0 0;">{shipping}</pre>
-  </div>"""
+        product_url = (
+            f"https://www.amazon.com/dp/{asin}?tag={affiliate_tag}"
+            if affiliate_tag else
+            f"https://www.amazon.com/dp/{asin}"
+        )
 
-    html_body = f"""
+        aod_block = ""
+        if item.get("found_in_aod"):
+            aod_block = f"""
+        <tr>
+          <td style="padding-top:14px;">
+            <div style="background:#fff8e1; border-{('right' if is_rtl else 'left')}:4px solid #e47911;
+                        padding:10px 14px; border-radius:4px; font-size:12px; color:#666;
+                        line-height:1.6; text-align:{txt_align};" {txt_dir}>
+              {_t(lang, "aod_note")}
+            </div>
+          </td>
+        </tr>"""
+
+        product_cards += f"""
+      <table width="100%" cellpadding="0" cellspacing="0"
+             style="background:white; border:1px solid #e8e8e8; border-radius:10px;
+                    margin-bottom:16px; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+        <tr>
+          <td style="padding:20px 22px 6px;">
+            <p style="margin:0 0 4px; font-size:17px; font-weight:bold; line-height:1.4;
+                      text-align:{txt_align};" {txt_dir}>
+              <a href="{product_url}" style="color:#0066cc; text-decoration:none;">{name}</a>
+            </p>
+            <p style="margin:0 0 16px; font-size:12px; color:#999; text-align:{txt_align};">
+              ASIN: {asin}
+            </p>
+            <div style="text-align:{txt_align};">
+              <a href="{product_url}"
+                 style="display:inline-block; background:#e47911; color:white;
+                        padding:11px 28px; border-radius:6px; text-decoration:none;
+                        font-size:15px; font-weight:bold; letter-spacing:0.3px;">
+                {_t(lang, "btn_buy")}
+              </a>
+            </div>
+          </td>
+        </tr>{aod_block}
+        <tr><td style="padding:0 0 4px;"></td></tr>
+      </table>"""
+
+    # ── Header sub-text ───────────────────────────────────────
+    header_sub = _t(lang, "header_sub1") if n == 1 else _t(lang, "header_sub", n=n)
+
+    # ── Full HTML ─────────────────────────────────────────────
+    html_body = f"""<!DOCTYPE html>
 <html>
-<body style="font-family: Arial, sans-serif; color: #222; max-width:640px; margin:auto;">
-  <h2 style="color: #e47911;">&#128666; FREE Shipping to Israel — {len(items)} product(s)</h2>
-  {product_rows}
-  <p style="color: #888; font-size: 12px; margin-top:20px;">Checked at: {checked_at}</p>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0; padding:0; background:#f0f2f5;
+             font-family: Arial, 'Segoe UI', sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0"
+         style="background:#f0f2f5; padding:28px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0"
+               style="max-width:600px; width:100%;">
+
+          <!-- Header -->
+          <tr>
+            <td style="background:linear-gradient(135deg, #c45e00 0%, #e47911 50%, #f5a623 100%);
+                       border-radius:12px 12px 0 0; padding:32px 28px; text-align:center;">
+              <div style="font-size:48px; line-height:1; margin-bottom:14px;">🚚</div>
+              <h1 style="margin:0 0 8px; color:white; font-size:26px; font-weight:bold;
+                         letter-spacing:0.5px;" {txt_dir}>
+                {_t(lang, "header_title")}
+              </h1>
+              <p style="margin:0; color:rgba(255,255,255,0.88); font-size:14px;" {txt_dir}>
+                {header_sub}
+              </p>
+            </td>
+          </tr>
+
+          <!-- Products -->
+          <tr>
+            <td style="background:#f8f9fa; padding:22px 22px 8px;">
+              {product_cards}
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background:#efefef; border-top:1px solid #e0e0e0;
+                       border-radius:0 0 12px 12px;
+                       padding:14px 28px; text-align:center;">
+              <p style="margin:0; color:#aaa; font-size:11px;" {txt_dir}>
+                {_t(lang, "footer", checked_at=checked_at)}
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
-</html>
-"""
+</html>"""
 
     _smtp_send(config, subject, text_body, html_body)
 

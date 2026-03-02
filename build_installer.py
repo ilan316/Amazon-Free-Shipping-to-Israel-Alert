@@ -196,6 +196,50 @@ for _arg in sys.argv[1:]:
     elif _arg == "--auto-update":
         _ARGV_AUTO_UPDATE = True
 
+_UNINSTALL_PS1_TMPL = r"""
+Add-Type -AssemblyName System.Windows.Forms
+
+$app = "Amazon Free Shipping to Israel Alert"
+$installDir = "__INSTALL_DIR__"
+$regRun   = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+$regUninst = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\AmazonFreeShippingAlert"
+
+$ans = [System.Windows.Forms.MessageBox]::Show(
+    "Are you sure you want to uninstall $app?",
+    "Uninstall $app",
+    [System.Windows.Forms.MessageBoxButtons]::YesNo,
+    [System.Windows.Forms.MessageBoxIcon]::Question)
+if ($ans -ne [System.Windows.Forms.DialogResult]::Yes) { exit 0 }
+
+# Kill running instance (launcher exe + python gui.py)
+Get-Process -Name "AmazonIsraelFreeShipAlert" -ErrorAction SilentlyContinue |
+    Stop-Process -Force -ErrorAction SilentlyContinue
+Get-CimInstance Win32_Process -Filter "Name='python.exe'" |
+    Where-Object { $_.CommandLine -like "*gui.py*" } |
+    ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+Start-Sleep -Seconds 2
+
+# Remove autostart
+Remove-ItemProperty -Path $regRun -Name "AmazonFreeShippingMonitor" -ErrorAction SilentlyContinue
+
+# Remove uninstall key
+Remove-Item -Path $regUninst -Recurse -Force -ErrorAction SilentlyContinue
+
+# Delete desktop shortcut
+$lnk = [System.IO.Path]::Combine([Environment]::GetFolderPath("Desktop"), "Amazon Israel Free Ship Alert.lnk")
+Remove-Item $lnk -Force -ErrorAction SilentlyContinue
+
+# Schedule folder deletion after this script exits (cmd /c ping delays ~1 s per ping)
+$cmd = "cmd.exe /c ping 127.0.0.1 -n 3 >nul & rmdir /s /q `"$installDir`""
+Start-Process "cmd.exe" -ArgumentList "/c ping 127.0.0.1 -n 3 >nul & rmdir /s /q `"$installDir`"" -WindowStyle Hidden
+
+[System.Windows.Forms.MessageBox]::Show(
+    "$app has been uninstalled.",
+    "Uninstall complete",
+    [System.Windows.Forms.MessageBoxButtons]::OK,
+    [System.Windows.Forms.MessageBoxIcon]::Information)
+"""
+
 
 def _find_python():
     """Return a usable python executable path, or '' if not found."""
@@ -780,6 +824,33 @@ class InstallerApp(tk.Tk):
                 self._log("  Autostart on Windows login: enabled.")
             except Exception as _ae:
                 self._log(f"  Could not enable autostart: {_ae}")
+
+            # Register in Windows "Installed Apps" (Add/Remove Programs)
+            try:
+                import winreg as _wr
+                _unreg_key = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\AmazonFreeShippingAlert"
+                _ps1_path  = os.path.join(install_dir, "_uninstall.ps1")
+                _ps1_content = _UNINSTALL_PS1_TMPL.replace(
+                    "__INSTALL_DIR__", install_dir.replace("\\", "\\\\"))
+                with open(_ps1_path, "w", encoding="utf-8") as _pf:
+                    _pf.write(_ps1_content)
+                _powershell_exe = os.path.join(
+                    os.environ.get("SystemRoot", r"C:\Windows"),
+                    "System32", "WindowsPowerShell", "v1.0", "powershell.exe")
+                _ucmd = (f'"{_powershell_exe}" -ExecutionPolicy Bypass'
+                         f' -File "{_ps1_path}"')
+                with _wr.CreateKey(_wr.HKEY_CURRENT_USER, _unreg_key) as _k:
+                    _wr.SetValueEx(_k, "DisplayName",     0, _wr.REG_SZ,    "Amazon Free Shipping to Israel Alert")
+                    _wr.SetValueEx(_k, "DisplayVersion",  0, _wr.REG_SZ,    VERSION)
+                    _wr.SetValueEx(_k, "Publisher",       0, _wr.REG_SZ,    "amzfreeil.com")
+                    _wr.SetValueEx(_k, "InstallLocation", 0, _wr.REG_SZ,    install_dir)
+                    _wr.SetValueEx(_k, "UninstallString", 0, _wr.REG_SZ,    _ucmd)
+                    _wr.SetValueEx(_k, "DisplayIcon",     0, _wr.REG_SZ,    _app_exe + ",0")
+                    _wr.SetValueEx(_k, "NoModify",        0, _wr.REG_DWORD, 1)
+                    _wr.SetValueEx(_k, "NoRepair",        0, _wr.REG_DWORD, 1)
+                self._log("  Registered in Windows Installed Apps.")
+            except Exception as _re:
+                self._log(f"  Could not register in Installed Apps: {_re}")
 
             self._log("\n" + "=" * 48)
             self._log("  Installation complete!")

@@ -68,6 +68,17 @@ def remove_product(asin: str) -> dict:
     return config
 
 
+def _follow_redirects(url: str, timeout: int = 8) -> str:
+    """Follow HTTP redirects and return the final URL. Returns original url on any error."""
+    import urllib.request
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return resp.url
+    except Exception:
+        return url
+
+
 def _extract_asin(value: str) -> str:
     """Extract a 10-character ASIN from a URL or return the value directly if it looks like an ASIN."""
     value = value.strip()
@@ -77,14 +88,29 @@ def _extract_asin(value: str) -> str:
         r"/product/([A-Z0-9]{10})",
         r"ASIN=([A-Z0-9]{10})",
     ]
-    for pattern in patterns:
-        match = re.search(pattern, value, re.IGNORECASE)
-        if match:
-            return match.group(1).upper()
+
+    def _try_patterns(s: str) -> str | None:
+        for p in patterns:
+            m = re.search(p, s, re.IGNORECASE)
+            if m:
+                return m.group(1).upper()
+        return None
+
+    asin = _try_patterns(value)
+    if asin:
+        return asin
 
     # If no URL pattern matched, assume it's an ASIN directly
     if re.fullmatch(r"[A-Z0-9]{10}", value, re.IGNORECASE):
         return value.upper()
+
+    # Stage 1: follow redirects and retry (handles amzn.to, a.co, etc.)
+    if value.lower().startswith("http"):
+        final = _follow_redirects(value)
+        if final != value:
+            asin = _try_patterns(final)
+            if asin:
+                return asin
 
     raise ValueError(
         f"Could not extract ASIN from: '{value}'\n"

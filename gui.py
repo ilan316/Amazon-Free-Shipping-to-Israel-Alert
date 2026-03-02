@@ -5,6 +5,7 @@ Run with: python gui.py
 
 import sys
 import os
+import webbrowser
 
 # Always set CWD to the project folder so that config.json / state.json /
 # browser_profile are found correctly — regardless of how the app was launched
@@ -62,6 +63,7 @@ _STRINGS: dict = {
         "btn_resume":           "▶  המשך",
         "btn_check_now":        "🔍  בדוק עכשיו",
         "btn_settings":         "⚙  הגדרות",
+        "btn_contact":          "✉  צור קשר",
         "btn_start_monitoring": "▶  התחל ניטור",
         "btn_stop_monitoring":  "⏹  עצור ניטור",
         "log_label":            "יומן",
@@ -148,6 +150,7 @@ _STRINGS: dict = {
         "btn_resume":           "▶  Resume",
         "btn_check_now":        "🔍  Check Now",
         "btn_settings":         "⚙  Settings",
+        "btn_contact":          "✉  Contact",
         "btn_start_monitoring": "▶  Start Monitoring",
         "btn_stop_monitoring":  "⏹  Stop Monitoring",
         "log_label":            "Log",
@@ -413,7 +416,8 @@ class MonitorThread(threading.Thread):
                         cooldown = config.get("notification_cooldown_hours", 24)
                         notify = state_module.should_notify(state, asin, status_str, cooldown_hours=cooldown)
                         if notify:
-                            free_items.append({"product": product, "shipping_text": result.raw_text})
+                            free_items.append({"product": product, "shipping_text": result.raw_text,
+                                               "found_in_aod": result.found_in_aod})
 
                         state = state_module.update_product_state(
                             state, asin, status_str, notified=notify,
@@ -607,7 +611,12 @@ class App(tk.Tk):
 
         tk.Button(mid, text=_t("btn_settings"),
                   bg="#555555", fg="white", activebackground="#444444",
-                  command=self._show_settings, **btn_cfg).pack(side=tk.LEFT, padx=(0, 16))
+                  command=self._show_settings, **btn_cfg).pack(side=tk.LEFT, padx=(0, 4))
+
+        tk.Button(mid, text=_t("btn_contact"),
+                  bg="#1a6699", fg="white", activebackground="#154f7a",
+                  command=lambda: webbrowser.open("https://www.amzfreeil.com/"),
+                  **btn_cfg).pack(side=tk.LEFT, padx=(0, 16))
 
         self._start_btn = tk.Button(mid, text=_t("btn_start_monitoring"),
                                     bg="#1a7a1a", fg="white", activebackground="#145e14",
@@ -789,10 +798,17 @@ class App(tk.Tk):
         dlg.grab_set()  # modal
         dlg.transient(self)
 
+        # column helpers — in RTL col 0 is on the right visually (label side),
+        # so we swap: widget goes into col 0, label into col 1.
+        _c_lbl = 1 if _IS_RTL else 0   # column for text labels
+        _c_wid = 0 if _IS_RTL else 1   # column for input widgets
+        _pad_lbl = (8, 0) if _IS_RTL else (0, 8)   # label side-padding
+        _lbl_anchor = "ne" if _IS_RTL else "nw"    # LabelFrame title position
+
         # ── Email alerts ──
         email_cfg = config.get("email", {})
         frm_email = tk.LabelFrame(dlg, text=_t("email_section"), padx=12, pady=8,
-                                  font=("Segoe UI", 9))
+                                  font=("Segoe UI", 9), labelanchor=_lbl_anchor)
         frm_email.pack(padx=16, pady=(14, 6), fill=tk.X)
 
         ent_cfg = {"font": ("Segoe UI", 9), "relief": tk.SOLID, "bd": 1}
@@ -800,18 +816,18 @@ class App(tk.Tk):
 
         tk.Label(frm_email, text=_t("email_label"), font=("Segoe UI", 9),
                  anchor=_ANCHOR, justify=_JUSTIFY).grid(
-            row=0, column=0, sticky=_ANCHOR, padx=(0, 8))
+            row=0, column=_c_lbl, sticky=_ANCHOR, padx=_pad_lbl)
         tk.Entry(frm_email, textvariable=email_var, width=32, **ent_cfg,
-                 justify=_JUSTIFY).grid(row=0, column=1, sticky="ew")
+                 justify=_JUSTIFY).grid(row=0, column=_c_wid, sticky="ew")
         tk.Label(frm_email, text=_t("email_hint"),
                  font=("Segoe UI", 7), fg="#777777",
                  anchor=_ANCHOR, justify=_JUSTIFY).grid(
-            row=1, column=0, columnspan=2, sticky=_ANCHOR+"w" if _IS_RTL else "w", pady=(4, 0))
-        frm_email.columnconfigure(1, weight=1)
+            row=1, column=0, columnspan=2, sticky="e" if _IS_RTL else "w", pady=(4, 0))
+        frm_email.columnconfigure(_c_wid, weight=1)
 
         # ── Check interval ──
         frm = tk.LabelFrame(dlg, text=_t("interval_section"), padx=12, pady=8,
-                             font=("Segoe UI", 9))
+                             font=("Segoe UI", 9), labelanchor=_lbl_anchor)
         frm.pack(padx=16, pady=(0, 6), fill=tk.X)
 
         spin_cfg = {"width": 4, "font": ("Segoe UI", 10), "justify": "center"}
@@ -820,31 +836,42 @@ class App(tk.Tk):
         hrs_var  = tk.StringVar(value=str(init_hrs))
         mins_var = tk.StringVar(value=str(init_mins))
 
-        for col, label, var, lo, hi in [
-            (0, _t("days"),    days_var, 0, 365),
-            (2, _t("hours"),   hrs_var,  0, 23),
-            (4, _t("minutes"), mins_var, 0, 59),
-        ]:
-            tk.Label(frm, text=label, font=("Segoe UI", 9)).grid(
-                row=0, column=col, padx=(0, 2))
+        # RTL: reverse display order so "ימים" reads first (rightmost)
+        _interval_pairs = [
+            (_t("days"),    days_var, 0, 365),
+            (_t("hours"),   hrs_var,  0, 23),
+            (_t("minutes"), mins_var, 0, 59),
+        ]
+        if _IS_RTL:
+            _interval_pairs = list(reversed(_interval_pairs))
+        for i, (label, var, lo, hi) in enumerate(_interval_pairs):
+            base = i * 2
+            # Within each pair: RTL → spinbox left, label right
+            _spin_col  = base     if not _IS_RTL else base + 1
+            _label_col = base + 1 if not _IS_RTL else base
+            tk.Label(frm, text=label, font=("Segoe UI", 9),
+                     anchor=_ANCHOR, justify=_JUSTIFY).grid(
+                row=0, column=_label_col, padx=(0, 2) if not _IS_RTL else (2, 0))
             tk.Spinbox(frm, from_=lo, to=hi, textvariable=var,
-                       **spin_cfg).grid(row=0, column=col + 1, padx=(0, 10))
+                       **spin_cfg).grid(row=0, column=_spin_col,
+                                        padx=(0, 10) if not _IS_RTL else (10, 0))
 
         # ── Notification cooldown ──
         frm2 = tk.LabelFrame(dlg, text=_t("cooldown_section"), padx=12, pady=8,
-                              font=("Segoe UI", 9))
+                              font=("Segoe UI", 9), labelanchor=_lbl_anchor)
         frm2.pack(padx=16, pady=(0, 6), fill=tk.X)
 
         cooldown_var = tk.StringVar(value=str(init_cooldown))
         tk.Label(frm2, text=_t("cooldown_label"),
                  font=("Segoe UI", 9), anchor=_ANCHOR, justify=_JUSTIFY).grid(
-            row=0, column=0, padx=(0, 8), sticky=_ANCHOR)
+            row=0, column=_c_lbl, padx=_pad_lbl, sticky=_ANCHOR)
         tk.Spinbox(frm2, from_=1, to=720, textvariable=cooldown_var,
-                   **spin_cfg).grid(row=0, column=1, padx=(0, 4))
+                   **spin_cfg).grid(row=0, column=_c_wid,
+                                    padx=(4, 0) if _IS_RTL else (0, 4))
 
         # ── Start with Windows ──
         frm3 = tk.LabelFrame(dlg, text=_t("startup_section"), padx=12, pady=8,
-                              font=("Segoe UI", 9))
+                              font=("Segoe UI", 9), labelanchor=_lbl_anchor)
         frm3.pack(padx=16, pady=(0, 6), fill=tk.X)
 
         autostart_var = tk.BooleanVar(value=self._get_autostart())
@@ -854,7 +881,7 @@ class App(tk.Tk):
 
         # ── Language ──
         frm_lang = tk.LabelFrame(dlg, text=_t("language_section"), padx=12, pady=8,
-                                  font=("Segoe UI", 9))
+                                  font=("Segoe UI", 9), labelanchor=_lbl_anchor)
         frm_lang.pack(padx=16, pady=(0, 6), fill=tk.X)
 
         _lang_options = ["עברית (Hebrew)", "English"]
@@ -863,12 +890,13 @@ class App(tk.Tk):
 
         tk.Label(frm_lang, text=_t("language_label"), font=("Segoe UI", 9),
                  anchor=_ANCHOR, justify=_JUSTIFY).grid(
-            row=0, column=0, padx=(0, 8), sticky=_ANCHOR)
-        tk.OptionMenu(frm_lang, lang_var, *_lang_options).grid(row=0, column=1, sticky=_ANCHOR)
+            row=0, column=_c_lbl, padx=_pad_lbl, sticky=_ANCHOR)
+        tk.OptionMenu(frm_lang, lang_var, *_lang_options).grid(
+            row=0, column=_c_wid, sticky=_ANCHOR)
         tk.Label(frm_lang, text=_t("language_restart_note"),
                  font=("Segoe UI", 7), fg="#777777",
                  anchor=_ANCHOR, justify=_JUSTIFY).grid(
-            row=1, column=0, columnspan=2, sticky="ew" if _IS_RTL else "w", pady=(4, 0))
+            row=1, column=0, columnspan=2, sticky="e" if _IS_RTL else "w", pady=(4, 0))
 
         def _save():
             try:
@@ -1039,7 +1067,8 @@ class App(tk.Tk):
                     cooldown = config.get("notification_cooldown_hours", 24)
                     notify = state_module.should_notify(state, asin, s, cooldown_hours=cooldown)
                     if notify:
-                        free_items.append({"product": product, "shipping_text": r.raw_text})
+                        free_items.append({"product": product, "shipping_text": r.raw_text,
+                                           "found_in_aod": r.found_in_aod})
 
                     state = state_module.update_product_state(
                         state, asin, s, notified=notify,
@@ -1355,7 +1384,8 @@ class App(tk.Tk):
             dlg, text=msg_text,
             font=("Segoe UI", 10), padx=24, pady=20,
             justify="right" if _IS_RTL else "left",
-        ).pack()
+            anchor=_ANCHOR,
+        ).pack(anchor=_ANCHOR)
 
         btn_row = tk.Frame(dlg, padx=20, pady=(0, 18))
         btn_row.pack()
@@ -1364,19 +1394,20 @@ class App(tk.Tk):
             dlg.destroy()
             self._start_update_download(download_url)
 
+        _btn_side = tk.RIGHT if _IS_RTL else tk.LEFT
         tk.Button(
             btn_row, text=_t("btn_update_now"),
             bg="#0066cc", fg="white", relief=tk.FLAT,
             font=("Segoe UI", 10, "bold"), padx=16, pady=6,
             cursor="hand2", command=_on_now,
-        ).pack(side=tk.LEFT, padx=(0, 8))
+        ).pack(side=_btn_side, padx=(8, 0) if _IS_RTL else (0, 8))
 
         tk.Button(
             btn_row, text=_t("btn_update_later"),
             relief=tk.FLAT, font=("Segoe UI", 10),
             padx=16, pady=6, cursor="hand2",
             command=dlg.destroy,
-        ).pack(side=tk.LEFT)
+        ).pack(side=_btn_side)
 
         dlg.update_idletasks()
         px, py = self.winfo_x(), self.winfo_y()

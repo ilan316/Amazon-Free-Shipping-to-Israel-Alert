@@ -73,6 +73,7 @@ class CheckResult:
     raw_text: str = ""
     error_message: str = ""
     product_name: str = ""
+    found_in_aod: bool = False
 
 
 # ------------------------------------------------------------------
@@ -414,6 +415,7 @@ async def check_product(page: Page, asin: str, url: str) -> CheckResult:
 
         raw_text = await _read_delivery_text(page)
         status = _classify(raw_text) if raw_text else ShippingStatus.UNKNOWN
+        found_in_aod = False
 
         # If the main page didn't confirm FREE, try "See All Buying Options" panel
         if status != ShippingStatus.FREE:
@@ -432,6 +434,7 @@ async def check_product(page: Page, asin: str, url: str) -> CheckResult:
                 if aod_status == ShippingStatus.FREE or not raw_text:
                     raw_text = aod_text
                     status = aod_status
+                    found_in_aod = (aod_status == ShippingStatus.FREE)
 
         if not raw_text:
             logger.warning(f"[{asin}] No delivery text found.")
@@ -439,7 +442,8 @@ async def check_product(page: Page, asin: str, url: str) -> CheckResult:
                                product_name=product_name)
 
         logger.info(f"[{asin}] {status.value} | {raw_text[:120]!r}")
-        return CheckResult(asin, status, raw_text=raw_text, product_name=product_name)
+        return CheckResult(asin, status, raw_text=raw_text, product_name=product_name,
+                           found_in_aod=found_in_aod)
 
     except PWTimeout as e:
         return CheckResult(asin, ShippingStatus.ERROR, error_message=f"Timeout: {e}")
