@@ -538,27 +538,44 @@ class App(tk.Tk):
             pass
 
     def _build_ui(self):
+        # Logo-matched color palette
+        # Orange: #F5A31A  |  Navy: #1E3252  |  Cream bg: #FAF6EA
+        _BG = "#FAF6EA"
+        self.configure(bg=_BG)
+        style = ttk.Style()
+        style.theme_use("clam")
+        style.configure("Treeview.Heading",
+                         background="#1E3252", foreground="white",
+                         font=("Segoe UI", 9, "bold"), relief="flat")
+        style.map("Treeview.Heading", background=[("active", "#2A4470")])
+        style.configure("Treeview",
+                         background="#ffffff", fieldbackground="#ffffff",
+                         rowheight=26, font=("Segoe UI", 9))
+        style.map("Treeview",
+                   background=[("selected", "#FEF3DC")],
+                   foreground=[("selected", "#1E3252")])
+
         # Products table
-        top = tk.Frame(self, padx=8, pady=6)
+        top = tk.Frame(self, padx=8, pady=6, bg=_BG)
         top.pack(fill=tk.BOTH, expand=True)
 
         # Logo banner above the table
         self._logo_img = None
         try:
             from PIL import Image as _PilImg, ImageTk as _PilImgTk
-            _logo_path = os.path.join(os.getcwd(), "image.jpg")
+            _logo_path = os.path.join(os.getcwd(), "logo-new.png")
             if os.path.exists(_logo_path):
                 _pil = _PilImg.open(_logo_path).convert("RGBA")
                 _pil = _pil.resize((380, 157), _PilImg.LANCZOS)
                 self._logo_img = _PilImgTk.PhotoImage(_pil)
-                _logo_frame = tk.Frame(top, bg="white")
+                _logo_frame = tk.Frame(top, bg=_BG)
                 _logo_frame.pack(anchor="center", pady=(0, 4))
-                tk.Label(_logo_frame, image=self._logo_img, bg="white").pack()
+                tk.Label(_logo_frame, image=self._logo_img, bg=_BG).pack()
         except Exception:
             pass
 
         tk.Label(top, text=_t("monitored_products"), font=("Segoe UI", 11, "bold"),
-                 anchor=_ANCHOR, justify=_JUSTIFY).pack(anchor=_ANCHOR, fill=tk.X)
+                 anchor=_ANCHOR, justify=_JUSTIFY, bg=_BG).pack(anchor=_ANCHOR, fill=tk.X)
 
         cols = ("name", "asin", "status", "last_checked")
         self.tree = ttk.Treeview(top, columns=cols, show="headings", selectmode="browse", height=8)
@@ -586,57 +603,57 @@ class App(tk.Tk):
             self.tree.tag_configure(status, foreground=colour)
 
         # Action buttons
-        mid = tk.Frame(self, padx=8, pady=4)
+        mid = tk.Frame(self, padx=8, pady=4, bg=_BG)
         mid.pack(fill=tk.X)
 
         btn_cfg = {"padx": 9, "pady": 4, "relief": tk.FLAT, "bd": 0,
                    "font": ("Segoe UI", 9), "cursor": "hand2"}
 
         tk.Button(mid, text=_t("btn_add_product"),
-                  bg="#0066cc", fg="white", activebackground="#0055aa",
+                  bg="#F5A31A", fg="white", activebackground="#D9901A",
                   command=self._add_product, **btn_cfg).pack(side=tk.LEFT, padx=(0, 4))
 
         tk.Button(mid, text=_t("btn_remove"),
-                  bg="#cc3300", fg="white", activebackground="#aa2200",
+                  bg="#dc2626", fg="white", activebackground="#b91c1c",
                   command=self._remove_product, **btn_cfg).pack(side=tk.LEFT, padx=(0, 4))
 
         self._pause_btn = tk.Button(mid, text=_t("btn_pause"),
-                                    bg="#7a6000", fg="white", activebackground="#5e4800",
+                                    bg="#d97706", fg="white", activebackground="#b45309",
                                     command=self._toggle_pause, **btn_cfg)
         self._pause_btn.pack(side=tk.LEFT, padx=(0, 4))
 
         tk.Button(mid, text=_t("btn_check_now"),
-                  bg="#4a4a4a", fg="white", activebackground="#333333",
+                  bg="#1E3252", fg="white", activebackground="#16284A",
                   command=self._check_now, **btn_cfg).pack(side=tk.LEFT, padx=(0, 4))
 
         tk.Button(mid, text=_t("btn_settings"),
-                  bg="#555555", fg="white", activebackground="#444444",
+                  bg="#6B5E45", fg="white", activebackground="#574A38",
                   command=self._show_settings, **btn_cfg).pack(side=tk.LEFT, padx=(0, 4))
 
         tk.Button(mid, text=_t("btn_contact"),
-                  bg="#1a6699", fg="white", activebackground="#154f7a",
+                  bg="#1E3252", fg="white", activebackground="#16284A",
                   command=lambda: webbrowser.open("https://www.amzfreeil.com/"),
                   **btn_cfg).pack(side=tk.LEFT, padx=(0, 16))
 
         self._start_btn = tk.Button(mid, text=_t("btn_start_monitoring"),
-                                    bg="#1a7a1a", fg="white", activebackground="#145e14",
+                                    bg="#F5A31A", fg="white", activebackground="#D9901A",
                                     command=self._toggle_monitoring, **btn_cfg)
         self._start_btn.pack(side=tk.LEFT, padx=(0, 4))
 
         self._interval_var = tk.StringVar(value="")
         tk.Label(mid, textvariable=self._interval_var,
-                 font=("Segoe UI", 9), fg="#555555").pack(side=tk.RIGHT)
+                 font=("Segoe UI", 9), fg="#8B7355", bg=_BG).pack(side=tk.RIGHT)
 
         # Log area
-        bot = tk.Frame(self, padx=8)
+        bot = tk.Frame(self, padx=8, bg=_BG)
         bot.pack(fill=tk.BOTH, expand=False, pady=(0, 8))
 
-        hdr = tk.Frame(bot)
+        hdr = tk.Frame(bot, bg=_BG)
         hdr.pack(fill=tk.X)
         tk.Label(hdr, text=_t("log_label"), font=("Segoe UI", 9, "bold"),
-                 anchor=_ANCHOR).pack(side=tk.LEFT if not _IS_RTL else tk.RIGHT)
+                 anchor=_ANCHOR, bg=_BG).pack(side=tk.LEFT if not _IS_RTL else tk.RIGHT)
         tk.Button(hdr, text=_t("btn_clear"), font=("Segoe UI", 8), relief=tk.FLAT,
-                  command=self._clear_log, cursor="hand2").pack(side=tk.LEFT if _IS_RTL else tk.RIGHT)
+                  command=self._clear_log, cursor="hand2", bg=_BG).pack(side=tk.LEFT if _IS_RTL else tk.RIGHT)
 
         self._log_text = tk.Text(
             bot, height=10, state=tk.DISABLED,
@@ -654,9 +671,9 @@ class App(tk.Tk):
 
         # Status bar
         self._status_var = tk.StringVar(value=_t("status_ready"))
-        tk.Label(self, textvariable=self._status_var, relief=tk.SUNKEN,
-                 anchor=_ANCHOR, font=("Segoe UI", 8), fg="#555555",
-                 padx=8).pack(side=tk.BOTTOM, fill=tk.X)
+        tk.Label(self, textvariable=self._status_var, relief=tk.FLAT,
+                 anchor=_ANCHOR, font=("Segoe UI", 8), fg="#7A6535", bg="#F0E5C8",
+                 padx=8, pady=3).pack(side=tk.BOTTOM, fill=tk.X)
 
     # ── Table helpers ─────────────────────────
 
@@ -820,7 +837,7 @@ class App(tk.Tk):
         tk.Entry(frm_email, textvariable=email_var, width=32, **ent_cfg,
                  justify=_JUSTIFY).grid(row=0, column=_c_wid, sticky="ew")
         tk.Label(frm_email, text=_t("email_hint"),
-                 font=("Segoe UI", 7), fg="#777777",
+                 font=("Segoe UI", 7), fg="#8B7355",
                  anchor=_ANCHOR, justify=_JUSTIFY).grid(
             row=1, column=0, columnspan=2, sticky="e" if _IS_RTL else "w", pady=(4, 0))
         frm_email.columnconfigure(_c_wid, weight=1)
@@ -894,7 +911,7 @@ class App(tk.Tk):
         tk.OptionMenu(frm_lang, lang_var, *_lang_options).grid(
             row=0, column=_c_wid, sticky=_ANCHOR)
         tk.Label(frm_lang, text=_t("language_restart_note"),
-                 font=("Segoe UI", 7), fg="#777777",
+                 font=("Segoe UI", 7), fg="#8B7355",
                  anchor=_ANCHOR, justify=_JUSTIFY).grid(
             row=1, column=0, columnspan=2, sticky="e" if _IS_RTL else "w", pady=(4, 0))
 
@@ -936,7 +953,7 @@ class App(tk.Tk):
             dlg.destroy()
 
         tk.Button(dlg, text=_t("btn_save"), command=_save,
-                  bg="#0066cc", fg="white", relief=tk.FLAT,
+                  bg="#F5A31A", fg="white", relief=tk.FLAT,
                   padx=16, pady=4, font=("Segoe UI", 9),
                   cursor="hand2").pack(pady=(4, 14))
 
@@ -969,7 +986,7 @@ class App(tk.Tk):
         txt.focus_set()
 
         tk.Label(dlg, text=_t("add_example"),
-                 font=("Segoe UI", 8), fg="#777777",
+                 font=("Segoe UI", 8), fg="#8B7355",
                  anchor=_ANCHOR, justify=_JUSTIFY).pack(anchor=_ANCHOR, padx=12, pady=(3, 0))
 
         def _do_add():
@@ -1006,7 +1023,7 @@ class App(tk.Tk):
                 )
 
         tk.Button(dlg, text=_t("btn_add"), command=_do_add,
-                  bg="#0066cc", fg="white", relief=tk.FLAT,
+                  bg="#F5A31A", fg="white", relief=tk.FLAT,
                   padx=16, pady=4, font=("Segoe UI", 9),
                   cursor="hand2").pack(pady=(6, 12))
 
@@ -1105,7 +1122,7 @@ class App(tk.Tk):
         if self._monitor_thread and self._monitor_thread.is_alive():
             self._stop_event.set()
             self._start_btn.configure(text=_t("btn_start_monitoring"),
-                                      bg="#1a7a1a", activebackground="#145e14")
+                                      bg="#F5A31A", activebackground="#D9901A")
             self._status_var.set(_t("monitoring_stopped"))
             self._interval_var.set("")
             _cfg = cfg_module.load_config()
@@ -1130,7 +1147,7 @@ class App(tk.Tk):
             )
             self._monitor_thread.start()
             self._start_btn.configure(text=_t("btn_stop_monitoring"),
-                                      bg="#cc3300", activebackground="#aa2200")
+                                      bg="#dc2626", activebackground="#b91c1c")
             interval = config.get("check_interval_minutes", 60)
             self._status_var.set(_t("monitoring_every", interval))
             config["monitoring_active"] = True
@@ -1397,7 +1414,7 @@ class App(tk.Tk):
         _btn_side = tk.RIGHT if _IS_RTL else tk.LEFT
         tk.Button(
             btn_row, text=_t("btn_update_now"),
-            bg="#0066cc", fg="white", relief=tk.FLAT,
+            bg="#F5A31A", fg="white", relief=tk.FLAT,
             font=("Segoe UI", 10, "bold"), padx=16, pady=6,
             cursor="hand2", command=_on_now,
         ).pack(side=_btn_side, padx=(8, 0) if _IS_RTL else (0, 8))

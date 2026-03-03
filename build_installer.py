@@ -43,7 +43,7 @@ INCLUDE = [
     "requirements.txt",
     "config.json",
     ".env",
-    "image.jpg",
+    "logo-new.png",
     "icon.ico",
 ]
 
@@ -997,7 +997,7 @@ def _make_logo_b64(width: int = 420, height: int = 173) -> str:
     try:
         from PIL import Image as _Img
         import io as _io
-        path = os.path.join(PROJECT, "image.jpg")
+        path = os.path.join(PROJECT, "logo-new.png")
         with _Img.open(path) as img:
             img = img.resize((width, height), _Img.LANCZOS)
             buf = _io.BytesIO()
