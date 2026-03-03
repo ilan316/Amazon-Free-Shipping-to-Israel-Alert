@@ -1418,6 +1418,7 @@ class App(tk.Tk):
         self.update_idletasks()
 
         dlg = tk.Toplevel(self)
+        dlg.withdraw()  # hide until positioned — prevents flash at (0,0)
         dlg.title(_t("update_available_title"))
         dlg.resizable(False, False)
         dlg.transient(self)
@@ -1457,14 +1458,15 @@ class App(tk.Tk):
             command=dlg.destroy,
         ).pack(side=_btn_side)
 
-        dlg.update()  # force full render so all widgets (incl. buttons) are sized
-        dw = max(dlg.winfo_width(), dlg.winfo_reqwidth())
-        dh = max(dlg.winfo_height(), dlg.winfo_reqheight())
+        dlg.update_idletasks()  # calculate widget sizes without showing
+        dw = dlg.winfo_reqwidth()
+        dh = dlg.winfo_reqheight()
         sw, sh = self.winfo_screenwidth(), self.winfo_screenheight()
         # Always center on screen — parent position is unreliable after tray restore
         x = max(0, min((sw - dw) // 2, sw - dw))
         y = max(0, min((sh - dh) // 2, sh - dh - 48))  # 48 ≈ taskbar
         dlg.geometry(f"+{x}+{y}")
+        dlg.deiconify()  # show directly at correct position — no flash
 
     def _start_update_download(self, download_url: str):
         """Download the new installer to a temp file, then launch it."""
