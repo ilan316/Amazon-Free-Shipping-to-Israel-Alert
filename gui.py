@@ -75,14 +75,14 @@ _STRINGS: dict = {
         "status_paused":        "⏸  מושהה",
         "settings_title":       "הגדרות",
         "email_section":        'התראות דוא"ל',
-        "email_label":          'כתובת הדוא"ל שלך:',
+        "email_label":          'כתובת הדוא"ל שלך:\u200f',
         "email_hint":           "התראות יישלחו לכתובת זו כשיזוהה משלוח חינם",
         "interval_section":     "מרווח בדיקה",
         "days":                 "ימים",
         "hours":                "שעות",
         "minutes":              "דקות",
         "cooldown_section":     'השהיית התראת דוא"ל',
-        "cooldown_label":       "שעות בין מיילים חוזרים על אותו מוצר:",
+        "cooldown_label":       "שעות בין מיילים חוזרים על אותו מוצר:\u200f",
         "startup_section":      "הפעלה עם Windows",
         "startup_checkbox":     "הפעל אוטומטית עם הפעלת Windows",
         "btn_save":             "שמור",
@@ -589,7 +589,7 @@ class App(tk.Tk):
         self.tree.column("name",         width=260, anchor=_ANCHOR)
         self.tree.column("asin",         width=110, anchor="center")
         self.tree.column("status",       width=175, anchor="center")
-        self.tree.column("last_checked", width=140, anchor="center")
+        self.tree.column("last_checked", width=140, anchor=_ANCHOR)
 
         vsb = ttk.Scrollbar(top, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=vsb.set)
@@ -707,7 +707,14 @@ class App(tk.Tk):
             paused   = p.get("paused", False)
             s        = state.get(asin, {})
             raw_last = s.get("last_checked") or ""
-            disp_last = raw_last.replace("T", "  ") if raw_last else "—"
+            if raw_last:
+                try:
+                    _d = datetime.fromisoformat(raw_last)
+                    disp_last = _d.strftime("%d/%m/%Y %H:%M:%S") if _IS_RTL else _d.strftime("%Y-%m-%d %H:%M:%S")
+                except Exception:
+                    disp_last = raw_last.replace("T", " ")
+            else:
+                disp_last = "—"
             if paused:
                 label, tag = STATUS_LABELS["PAUSED"], "PAUSED"
             else:
@@ -861,17 +868,24 @@ class App(tk.Tk):
         ]
         if _IS_RTL:
             _interval_pairs = list(reversed(_interval_pairs))
+
+        # Inner frame: right-align in RTL, left-align in LTR
+        _inner_interval = tk.Frame(frm)
+        _inner_interval.pack(anchor="e" if _IS_RTL else "w")
+
         for i, (label, var, lo, hi) in enumerate(_interval_pairs):
             base = i * 2
-            # Within each pair: RTL → spinbox left, label right
+            # Within each pair: RTL → spinbox left of label
             _spin_col  = base     if not _IS_RTL else base + 1
             _label_col = base + 1 if not _IS_RTL else base
-            tk.Label(frm, text=label, font=("Segoe UI", 9),
+            # RTL: 8px between pairs (on label's left), 2px within pair (on spin's left)
+            _lpad = (0, 2) if not _IS_RTL else (8, 0)
+            _spad = (0, 10) if not _IS_RTL else (2, 0)
+            tk.Label(_inner_interval, text=label, font=("Segoe UI", 9),
                      anchor=_ANCHOR, justify=_JUSTIFY).grid(
-                row=0, column=_label_col, padx=(0, 2) if not _IS_RTL else (2, 0))
-            tk.Spinbox(frm, from_=lo, to=hi, textvariable=var,
-                       **spin_cfg).grid(row=0, column=_spin_col,
-                                        padx=(0, 10) if not _IS_RTL else (10, 0))
+                row=0, column=_label_col, padx=_lpad)
+            tk.Spinbox(_inner_interval, from_=lo, to=hi, textvariable=var,
+                       **spin_cfg).grid(row=0, column=_spin_col, padx=_spad)
 
         # ── Notification cooldown ──
         frm2 = tk.LabelFrame(dlg, text=_t("cooldown_section"), padx=12, pady=8,
@@ -885,6 +899,7 @@ class App(tk.Tk):
         tk.Spinbox(frm2, from_=1, to=720, textvariable=cooldown_var,
                    **spin_cfg).grid(row=0, column=_c_wid,
                                     padx=(4, 0) if _IS_RTL else (0, 4))
+        frm2.columnconfigure(_c_lbl, weight=1)
 
         # ── Start with Windows ──
         frm3 = tk.LabelFrame(dlg, text=_t("startup_section"), padx=12, pady=8,
@@ -892,9 +907,17 @@ class App(tk.Tk):
         frm3.pack(padx=16, pady=(0, 6), fill=tk.X)
 
         autostart_var = tk.BooleanVar(value=self._get_autostart())
-        tk.Checkbutton(frm3, text=_t("startup_checkbox"),
-                       variable=autostart_var,
-                       font=("Segoe UI", 9)).pack(anchor=_ANCHOR)
+        _cb_frame = tk.Frame(frm3)
+        _cb_frame.pack(anchor=_ANCHOR)
+        if _IS_RTL:
+            tk.Checkbutton(_cb_frame, text="", variable=autostart_var,
+                           font=("Segoe UI", 9)).pack(side="right")
+            tk.Label(_cb_frame, text=_t("startup_checkbox"),
+                     font=("Segoe UI", 9), anchor="e").pack(side="right")
+        else:
+            tk.Checkbutton(_cb_frame, text=_t("startup_checkbox"),
+                           variable=autostart_var,
+                           font=("Segoe UI", 9)).pack(side="left")
 
         # ── Language ──
         frm_lang = tk.LabelFrame(dlg, text=_t("language_section"), padx=12, pady=8,
@@ -905,10 +928,13 @@ class App(tk.Tk):
         _lang_display = "עברית (Hebrew)" if config.get("language", "he") == "he" else "English"
         lang_var = tk.StringVar(value=_lang_display)
 
-        tk.Label(frm_lang, text=_t("language_label"), font=("Segoe UI", 9),
+        _inner_lang = tk.Frame(frm_lang)
+        _inner_lang.grid(row=0, column=0, columnspan=2,
+                         sticky="e" if _IS_RTL else "w")
+        tk.Label(_inner_lang, text=_t("language_label"), font=("Segoe UI", 9),
                  anchor=_ANCHOR, justify=_JUSTIFY).grid(
             row=0, column=_c_lbl, padx=_pad_lbl, sticky=_ANCHOR)
-        tk.OptionMenu(frm_lang, lang_var, *_lang_options).grid(
+        tk.OptionMenu(_inner_lang, lang_var, *_lang_options).grid(
             row=0, column=_c_wid, sticky=_ANCHOR)
         tk.Label(frm_lang, text=_t("language_restart_note"),
                  font=("Segoe UI", 7), fg="#8B7355",
