@@ -129,7 +129,7 @@ _STRINGS: dict = {
         "autostart_off_log":    "  הפעלה אוטומטית: כבוי.",
         "email_set_log":        '  דוא"ל: {}.',
         "update_available_title": "עדכון זמין",
-        "update_available_msg":   "גרסה {} זמינה (גרסה נוכחית: {}).\nלהוריד ולהתקין את העדכון?",
+        "update_available_msg":   "גרסה {} זמינה (גרסה נוכחית: {}).\u200f\nלהוריד ולהתקין את העדכון?\u200f",
         "btn_update_now":         "הורד עדכון כעת",
         "btn_update_later":       "מאוחר יותר",
         "downloading_update":     "מוריד עדכון...",
@@ -1457,20 +1457,13 @@ class App(tk.Tk):
             command=dlg.destroy,
         ).pack(side=_btn_side)
 
-        dlg.update_idletasks()
-        dw, dh = dlg.winfo_reqwidth(), dlg.winfo_reqheight()
+        dlg.update()  # force full render so all widgets (incl. buttons) are sized
+        dw = max(dlg.winfo_width(), dlg.winfo_reqwidth())
+        dh = max(dlg.winfo_height(), dlg.winfo_reqheight())
         sw, sh = self.winfo_screenwidth(), self.winfo_screenheight()
-        if self.winfo_viewable():
-            px, py = self.winfo_x(), self.winfo_y()
-            pw, ph = self.winfo_width(), self.winfo_height()
-            x = px + (pw - dw) // 2
-            y = py + (ph - dh) // 2
-        else:
-            x = (sw - dw) // 2
-            y = (sh - dh) // 2
-        # Clamp so the dialog never goes off-screen
-        x = max(0, min(x, sw - dw))
-        y = max(0, min(y, sh - dh - 48))  # 48 ≈ taskbar
+        # Always center on screen — parent position is unreliable after tray restore
+        x = max(0, min((sw - dw) // 2, sw - dw))
+        y = max(0, min((sh - dh) // 2, sh - dh - 48))  # 48 ≈ taskbar
         dlg.geometry(f"+{x}+{y}")
 
     def _start_update_download(self, download_url: str):
