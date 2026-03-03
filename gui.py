@@ -1433,14 +1433,18 @@ class App(tk.Tk):
 
         dlg.update_idletasks()
         dw, dh = dlg.winfo_reqwidth(), dlg.winfo_reqheight()
+        sw, sh = self.winfo_screenwidth(), self.winfo_screenheight()
         if self.winfo_viewable():
             px, py = self.winfo_x(), self.winfo_y()
             pw, ph = self.winfo_width(), self.winfo_height()
             x = px + (pw - dw) // 2
             y = py + (ph - dh) // 2
         else:
-            x = (self.winfo_screenwidth()  - dw) // 2
-            y = (self.winfo_screenheight() - dh) // 2
+            x = (sw - dw) // 2
+            y = (sh - dh) // 2
+        # Clamp so the dialog never goes off-screen
+        x = max(0, min(x, sw - dw))
+        y = max(0, min(y, sh - dh - 48))  # 48 ≈ taskbar
         dlg.geometry(f"+{x}+{y}")
 
     def _start_update_download(self, download_url: str):
