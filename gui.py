@@ -1386,6 +1386,11 @@ class App(tk.Tk):
 
     def _show_update_dialog(self, version: str, download_url: str):
         """Show a modal dialog offering to download the new version."""
+        # Bring main window to front (it may be hidden in tray)
+        self.deiconify()
+        self.lift()
+        self.update_idletasks()
+
         dlg = tk.Toplevel(self)
         dlg.title(_t("update_available_title"))
         dlg.resizable(False, False)
@@ -1427,10 +1432,16 @@ class App(tk.Tk):
         ).pack(side=_btn_side)
 
         dlg.update_idletasks()
-        px, py = self.winfo_x(), self.winfo_y()
-        pw, ph = self.winfo_width(), self.winfo_height()
         dw, dh = dlg.winfo_reqwidth(), dlg.winfo_reqheight()
-        dlg.geometry(f"+{px + (pw - dw) // 2}+{py + (ph - dh) // 2}")
+        if self.winfo_viewable():
+            px, py = self.winfo_x(), self.winfo_y()
+            pw, ph = self.winfo_width(), self.winfo_height()
+            x = px + (pw - dw) // 2
+            y = py + (ph - dh) // 2
+        else:
+            x = (self.winfo_screenwidth()  - dw) // 2
+            y = (self.winfo_screenheight() - dh) // 2
+        dlg.geometry(f"+{x}+{y}")
 
     def _start_update_download(self, download_url: str):
         """Download the new installer to a temp file, then launch it."""
