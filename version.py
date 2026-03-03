@@ -6,4 +6,4 @@
 #   MINOR — new feature
 #   PATCH — bug fix / small improvement
 
-__version__ = "1.4.0"
+__version__ = "1.4.1"

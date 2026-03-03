@@ -762,23 +762,19 @@ class InstallerApp(tk.Tk):
             if _use_exe:
                 self._app_exe_path = _app_exe
 
-            # Start Monitor.vbs  (no CMD window at all)
-            if _use_exe:
-                _vbs_launcher = (
-                    'Set WshShell = CreateObject("WScript.Shell")\r\n'
-                    f'WshShell.Run Chr(34) & "{_app_exe}" & Chr(34), 1, False\r\n'
-                    'Set WshShell = Nothing\r\n'
-                )
-            else:
+            # Start Monitor.vbs — only created as fallback when no exe launcher is present.
+            # When the exe exists it is the launcher; no VBS needed (VBS triggers AV false positives).
+            launcher = ""
+            if not _use_exe:
                 _vbs_launcher = (
                     'Set WshShell = CreateObject("WScript.Shell")\r\n'
                     f'WshShell.Run Chr(34) & "{_pythonw}" & Chr(34) & " " & Chr(34) & "{_gui_path}" & Chr(34), 0, False\r\n'
                     'Set WshShell = Nothing\r\n'
                 )
-            launcher = os.path.join(install_dir, "Start Monitor.vbs")
-            with open(launcher, "w", encoding="utf-8") as fh:
-                fh.write(_vbs_launcher)
-            self._launcher_path = launcher
+                launcher = os.path.join(install_dir, "Start Monitor.vbs")
+                with open(launcher, "w", encoding="utf-8") as fh:
+                    fh.write(_vbs_launcher)
+                self._launcher_path = launcher
 
             # Desktop shortcut — via PowerShell (works even when VBS is disabled)
             desktop = os.path.join(os.path.expanduser("~"), "Desktop")
@@ -855,7 +851,7 @@ class InstallerApp(tk.Tk):
             self._log("\n" + "=" * 48)
             self._log("  Installation complete!")
             self._log(f"  Folder   :  {install_dir}")
-            self._log(f"  Launcher :  {launcher}")
+            self._log(f"  Launcher :  {launcher or _app_exe}")
             self._log("=" * 48)
             self._status("Installation complete!")
             self.after(0, self._complete)
@@ -878,8 +874,7 @@ class InstallerApp(tk.Tk):
             "Installation complete",
             "Amazon Israel Free Ship Alert installed successfully!\n\n"
             "Launch:\n"
-            "  Use the Desktop shortcut, or\n"
-            '  double-click "Start Monitor.vbs" in the install folder.\n\n'
+            "  Use the Desktop shortcut.\n\n"
             "The app will also start automatically with Windows.",
             parent=self)
         self.destroy()
