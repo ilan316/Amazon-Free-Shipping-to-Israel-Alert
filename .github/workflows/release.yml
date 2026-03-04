@@ -1,4 +1,4 @@
-name: Auto Release
+name: Build and Release
 
 on:
   push:
@@ -8,18 +8,32 @@ on:
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     permissions:
       contents: write
 
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install PyInstaller
+        run: pip install pyinstaller
+
+      - name: Create .env
+        run: echo GMAIL_APP_PASSWORD=${{ secrets.GMAIL_APP_PASSWORD }} > .env
+
+      - name: Build installer
+        run: python build_installer.py
+
       - name: Read version
         id: ver
         run: |
-          VERSION=$(python3 -c "exec(open('version.py').read()); print(__version__)")
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          $v = python -c "exec(open('version.py').read()); print(__version__)"
+          echo "version=$v" >> $env:GITHUB_OUTPUT
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -27,3 +41,4 @@ jobs:
           tag_name: v${{ steps.ver.outputs.version }}
           name: v${{ steps.ver.outputs.version }}
           files: AmazonIsraelFreeShipAlert.exe
+          make_latest: true
