@@ -20,39 +20,53 @@ logger = logging.getLogger(__name__)
 # ── Localized strings ─────────────────────────────────────────────────────────
 _STRINGS = {
     "he": {
-        "subject_single":   "משלוח חינם לישראל: {name}",
-        "subject_multi":    "משלוח חינם לישראל: {n} מוצרים",
+        "subject_single":   "פרסומת | 🚨 משלוח חינם לישראל: {name}",
+        "subject_multi":    "פרסומת | 🚨 משלוח חינם לישראל: {n} מוצרים",
+        "preheader":        "אל תפספס! המחיר עשוי להשתנות בכל עת — לחץ לפרטים",
         "header_title":     "🚚 משלוח חינם לישראל!",
         "header_sub":       "נמצאו {n} מוצרים עם משלוח חינם",
         "header_sub1":      "נמצא מוצר עם משלוח חינם",
-        "btn_buy":          "לקנייה ←",
+        "shipping_badge":   "✅ משלוח חינם לישראל · הזמנות $49+",
+        "btn_buy":          "בדוק את המחיר באמזון ←",
+        "urgency":          "⏰ המחיר עשוי להשתנות בכל עת",
+        "quick_tip_title":  "💡 טיפ לחיסכון",
+        "quick_tip_body":   "הזמינו בין $49 ל-$74.99 כדי ליהנות ממשלוח חינם ללא מכס ישראלי.",
+        "disclosure":       "קישור שותף — הקנייה לא עולה לך יותר, אך אנו עשויים לקבל עמלה קטנה.",
         "footer":           "נבדק: {checked_at} · Amazon Free Shipping Monitor",
         "aod_note":         "⚠️ המשלוח החינמי נמצא תחת <strong>\"כל אפשרויות הקנייה\"</strong>.<br>"
                             "פתח את עמוד המוצר &larr; לחץ <strong>\"ראה את כל אפשרויות הקנייה\"</strong>"
                             " &larr; בחר את ההצעה עם משלוח חינם.",
         "aod_plain":        "הערה: המשלוח החינמי נמצא תחת 'כל אפשרויות הקנייה'. "
                             "פתח את הקישור ← לחץ 'ראה את כל אפשרויות הקנייה' ← בחר הצעה עם משלוח חינם.",
-        "plain_header":     "התראת משלוח חינם לישראל!\n",
+        "plain_header":     "🚨 התראת משלוח חינם לישראל!\n",
         "plain_product":    "מוצר",
         "plain_url":        "קישור",
+        "plain_urgency":    "⏰ המחיר עשוי להשתנות בכל עת",
         "plain_footer":     "נבדק: {checked_at}",
     },
     "en": {
-        "subject_single":   "FREE Shipping to Israel: {name}",
-        "subject_multi":    "FREE Shipping to Israel: {n} products found",
+        "subject_single":   "🚨 FREE Shipping to Israel: {name}",
+        "subject_multi":    "🚨 FREE Shipping to Israel: {n} products found",
+        "preheader":        "Don't miss out! Price may change at any time — check now",
         "header_title":     "🚚 FREE Shipping to Israel!",
         "header_sub":       "{n} products with free shipping found",
         "header_sub1":      "1 product with free shipping found",
-        "btn_buy":          "Shop Now →",
+        "shipping_badge":   "✅ FREE Shipping to Israel · Orders $49+",
+        "btn_buy":          "Check Today's Price on Amazon →",
+        "urgency":          "⏰ Price may change at any time",
+        "quick_tip_title":  "💡 Money-Saving Tip",
+        "quick_tip_body":   "Order between $49–$74.99 to enjoy free shipping without Israeli customs fees.",
+        "disclosure":       "Affiliate link — no extra cost to you, but we may earn a small commission.",
         "footer":           "Checked at: {checked_at} · Amazon Free Shipping Monitor",
         "aod_note":         "⚠️ Free shipping found in <strong>All Buying Options</strong>.<br>"
                             "Open the product page &rarr; click <strong>&ldquo;See All Buying Options&rdquo;</strong>"
                             " &rarr; select the offer with free shipping.",
         "aod_plain":        "NOTE: Found in All Buying Options — open the link, "
                             "click 'See All Buying Options', select the free-shipping offer.",
-        "plain_header":     "FREE Shipping to Israel Alert!\n",
+        "plain_header":     "🚨 FREE Shipping to Israel Alert!\n",
         "plain_product":    "Product",
         "plain_url":        "URL    ",
+        "plain_urgency":    "⏰ Price may change at any time",
         "plain_footer":     "Checked at: {checked_at}",
     },
 }
@@ -141,11 +155,35 @@ def send_batch_free_shipping_alert(config: dict, items: list):
             f"{_t(lang, 'plain_product')} : {name}",
             f"ASIN    : {asin}",
             f"{_t(lang, 'plain_url')} : {product_url}",
+            _t(lang, "plain_urgency"),
             *aod_line,
             "",
         ]
     lines.append(_t(lang, "plain_footer", checked_at=checked_at))
     text_body = "\n".join(lines)
+
+    # ── CTA button builder (bulletproof table-based) ──────────
+    def _cta_btn(url: str, label: str, bg: str = "#e47911") -> str:
+        return f"""
+        <tr>
+          <td align="{txt_align}" style="padding:8px 0;">
+            <table cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td align="center" bgcolor="{bg}"
+                    style="border-radius:6px; mso-padding-alt:0;">
+                  <a href="{url}"
+                     style="display:inline-block; background:{bg}; color:#ffffff;
+                            font-family:Arial,sans-serif; font-size:16px; font-weight:bold;
+                            text-decoration:none; padding:13px 32px; border-radius:6px;
+                            letter-spacing:0.3px; mso-padding-alt:13px 32px;"
+                     target="_blank">
+                    {label}
+                  </a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>"""
 
     # ── HTML product cards ────────────────────────────────────
     product_cards = ""
@@ -163,7 +201,7 @@ def send_batch_free_shipping_alert(config: dict, items: list):
         if item.get("found_in_aod"):
             aod_block = f"""
         <tr>
-          <td style="padding-top:14px;">
+          <td style="padding-top:10px;">
             <div style="background:#fff8e1; border-{('right' if is_rtl else 'left')}:4px solid #e47911;
                         padding:10px 14px; border-radius:4px; font-size:12px; color:#666;
                         line-height:1.6; text-align:{txt_align};" {txt_dir}>
@@ -174,32 +212,97 @@ def send_batch_free_shipping_alert(config: dict, items: list):
 
         product_cards += f"""
       <table width="100%" cellpadding="0" cellspacing="0"
-             style="background:white; border:1px solid #e8e8e8; border-radius:10px;
+             style="background:#ffffff; border:1px solid #e8e8e8; border-radius:10px;
                     margin-bottom:16px; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+
+        <!-- Product name + ASIN -->
         <tr>
-          <td style="padding:20px 22px 6px;">
+          <td style="padding:20px 22px 4px;">
             <p style="margin:0 0 4px; font-size:17px; font-weight:bold; line-height:1.4;
                       text-align:{txt_align};" {txt_dir}>
               <a href="{product_url}" style="color:#0066cc; text-decoration:none;">{name}</a>
             </p>
-            <p style="margin:0 0 16px; font-size:12px; color:#999; text-align:{txt_align};">
+            <p style="margin:0 0 10px; font-size:12px; color:#999; text-align:{txt_align};">
               ASIN: {asin}
             </p>
-            <div style="text-align:{txt_align};">
-              <a href="{product_url}"
-                 style="display:inline-block; background:#e47911; color:white;
-                        padding:11px 28px; border-radius:6px; text-decoration:none;
-                        font-size:15px; font-weight:bold; letter-spacing:0.3px;">
-                {_t(lang, "btn_buy")}
-              </a>
-            </div>
           </td>
-        </tr>{aod_block}
+        </tr>
+
+        <!-- Shipping badge -->
+        <tr>
+          <td style="padding:0 22px 10px;">
+            <p style="margin:0; font-size:13px; font-weight:bold; color:#2e7d32;
+                      text-align:{txt_align};" {txt_dir}>
+              {_t(lang, "shipping_badge")}
+            </p>
+          </td>
+        </tr>
+
+        <!-- Primary CTA button -->
+        <tr>
+          <td style="padding:0 22px 4px;">
+            <table width="100%" cellpadding="0" cellspacing="0">
+              {_cta_btn(product_url, _t(lang, "btn_buy"))}
+            </table>
+          </td>
+        </tr>
+
+        <!-- Urgency line -->
+        <tr>
+          <td style="padding:4px 22px 10px; text-align:{txt_align};" {txt_dir}>
+            <p style="margin:0; font-size:12px; color:#c0392b; font-style:italic;">
+              {_t(lang, "urgency")}
+            </p>
+          </td>
+        </tr>
+
+        <!-- Secondary CTA button (repeated) -->
+        <tr>
+          <td style="padding:0 22px 16px;">
+            <table width="100%" cellpadding="0" cellspacing="0">
+              {_cta_btn(product_url, _t(lang, "btn_buy"), bg="#c0392b")}
+            </table>
+          </td>
+        </tr>
+
+        {aod_block}
         <tr><td style="padding:0 0 4px;"></td></tr>
       </table>"""
 
     # ── Header sub-text ───────────────────────────────────────
     header_sub = _t(lang, "header_sub1") if n == 1 else _t(lang, "header_sub", n=n)
+
+    # ── Affiliate disclosure row (only when tag is set) ───────
+    disclosure_row = ""
+    if affiliate_tag:
+        disclosure_row = f"""
+          <tr>
+            <td style="padding:0 22px 14px; text-align:{txt_align};" {txt_dir}>
+              <p style="margin:0; font-size:11px; color:#aaa; font-style:italic;">
+                {_t(lang, "disclosure")}
+              </p>
+            </td>
+          </tr>"""
+
+    # ── Quick tip box ─────────────────────────────────────────
+    quick_tip_row = f"""
+          <tr>
+            <td style="padding:0 22px 16px;">
+              <table width="100%" cellpadding="0" cellspacing="0"
+                     style="background:#e8f5e9; border-radius:8px; border:1px solid #a5d6a7;">
+                <tr>
+                  <td style="padding:14px 18px; text-align:{txt_align};" {txt_dir}>
+                    <p style="margin:0 0 4px; font-size:13px; font-weight:bold; color:#2e7d32;">
+                      {_t(lang, "quick_tip_title")}
+                    </p>
+                    <p style="margin:0; font-size:12px; color:#388e3c; line-height:1.5;">
+                      {_t(lang, "quick_tip_body")}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>"""
 
     # ── Full HTML ─────────────────────────────────────────────
     html_body = f"""<!DOCTYPE html>
@@ -209,7 +312,15 @@ def send_batch_free_shipping_alert(config: dict, items: list):
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body style="margin:0; padding:0; background:#f0f2f5;
-             font-family: Arial, 'Segoe UI', sans-serif;">
+             font-family:Arial,'Segoe UI',sans-serif;">
+
+  <!-- Hidden preheader (shows in inbox preview) -->
+  <div style="display:none; max-height:0; overflow:hidden; mso-hide:all;">
+    {_t(lang, "preheader")}
+    &nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;
+    &nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;
+  </div>
+
   <table width="100%" cellpadding="0" cellspacing="0"
          style="background:#f0f2f5; padding:28px 0;">
     <tr>
@@ -232,10 +343,22 @@ def send_batch_free_shipping_alert(config: dict, items: list):
             </td>
           </tr>
 
+          <!-- Disclosure (if affiliate) -->
+          {disclosure_row}
+
           <!-- Products -->
           <tr>
             <td style="background:#f8f9fa; padding:22px 22px 8px;">
               {product_cards}
+            </td>
+          </tr>
+
+          <!-- Quick tip -->
+          <tr>
+            <td style="background:#f8f9fa; padding:0 22px 8px;">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                {quick_tip_row}
+              </table>
             </td>
           </tr>
 
