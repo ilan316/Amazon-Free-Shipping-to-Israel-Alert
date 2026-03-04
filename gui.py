@@ -137,6 +137,9 @@ _STRINGS: dict = {
         "btn_copy_link":          "🔗  העתק קישור אפיליאט",
         "log_link_copied":        "קישור אפיליאט הועתק ללוח",
         "log_no_affiliate_tag":   "קוד אפיליאט לא מוגדר",
+        "next_check_label":       "בדיקה הבאה:",
+        "btn_log_show":           "▼ יומן",
+        "btn_log_hide":           "▲ יומן",
     },
     "en": {
         "monitored_products":   "Monitored Products",
@@ -224,6 +227,9 @@ _STRINGS: dict = {
         "btn_copy_link":          "🔗  Copy Affiliate Link",
         "log_link_copied":        "Affiliate link copied to clipboard",
         "log_no_affiliate_tag":   "Affiliate tag not configured",
+        "next_check_label":       "Next check:",
+        "btn_log_show":           "▼ Log",
+        "btn_log_hide":           "▲ Log",
     },
 }
 
@@ -574,11 +580,13 @@ class App(tk.Tk):
         except Exception:
             pass
 
-        tk.Label(top, text=_t("monitored_products"), font=("Segoe UI", 11, "bold"),
+        self._products_label_var = tk.StringVar(value=_t("monitored_products"))
+        tk.Label(top, textvariable=self._products_label_var,
+                 font=("Segoe UI", 11, "bold"),
                  anchor=_ANCHOR, justify=_JUSTIFY, bg=_BG).pack(anchor=_ANCHOR, fill=tk.X)
 
         cols = ("name", "asin", "status", "last_checked")
-        self.tree = ttk.Treeview(top, columns=cols, show="headings", selectmode="browse", height=8)
+        self.tree = ttk.Treeview(top, columns=cols, show="headings", selectmode="extended", height=8)
         for _col, _txt in [
             ("name",         _t("col_product_name")),
             ("asin",         _t("col_asin")),
@@ -648,19 +656,28 @@ class App(tk.Tk):
         bot = tk.Frame(self, padx=8, bg=_BG)
         bot.pack(fill=tk.BOTH, expand=False, pady=(0, 8))
 
+        self._log_visible = False
+
         hdr = tk.Frame(bot, bg=_BG)
         hdr.pack(fill=tk.X)
         tk.Label(hdr, text=_t("log_label"), font=("Segoe UI", 9, "bold"),
                  anchor=_ANCHOR, bg=_BG).pack(side=tk.LEFT if not _IS_RTL else tk.RIGHT)
+        self._toggle_log_btn = tk.Button(
+            hdr, text=_t("btn_log_show"), font=("Segoe UI", 8), relief=tk.FLAT,
+            command=self._toggle_log, cursor="hand2", bg=_BG)
+        self._toggle_log_btn.pack(side=tk.LEFT if _IS_RTL else tk.RIGHT, padx=(0, 4))
         tk.Button(hdr, text=_t("btn_clear"), font=("Segoe UI", 8), relief=tk.FLAT,
                   command=self._clear_log, cursor="hand2", bg=_BG).pack(side=tk.LEFT if _IS_RTL else tk.RIGHT)
 
+        self._log_container = tk.Frame(bot, bg=_BG)
+        # intentionally NOT packed — log is hidden by default
+
         self._log_text = tk.Text(
-            bot, height=10, state=tk.DISABLED,
+            self._log_container, height=10, state=tk.DISABLED,
             font=("Consolas", 9), bg="#1e1e1e", fg="#d4d4d4",
             relief=tk.FLAT, padx=6, pady=4, wrap=tk.WORD,
         )
-        lsb = ttk.Scrollbar(bot, orient="vertical", command=self._log_text.yview)
+        lsb = ttk.Scrollbar(self._log_container, orient="vertical", command=self._log_text.yview)
         self._log_text.configure(yscrollcommand=lsb.set)
         self._log_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         lsb.pack(side=tk.LEFT, fill=tk.Y)
@@ -736,6 +753,9 @@ class App(tk.Tk):
                 "last_checked": lambda r: r["sort_last"],
             }.get(self._sort_col, lambda r: "")
             rows.sort(key=key_fn, reverse=self._sort_rev)
+
+        # Update heading with count
+        self._products_label_var.set(f"{_t('monitored_products')} ({len(rows)})")
 
         # Repopulate tree
         for iid in self.tree.get_children():
@@ -1082,14 +1102,24 @@ class App(tk.Tk):
             messagebox.showinfo(_t("busy_title"), _t("busy_msg"), parent=self)
             return
 
+        # Check only selected products; fall back to all when nothing selected
+        sel = self.tree.selection()
+        if sel:
+            selected_asins = set(sel)
+            products_to_check = [p for p in config.get("products", [])
+                                  if p["asin"] in selected_asins]
+        else:
+            products_to_check = config.get("products", [])
+        check_config = {**config, "products": products_to_check}
+
         self._status_var.set(_t("check_running"))
         self._append_log("Manual check started...")
 
         def run():
             state = state_module.load_state()
             try:
-                results     = asyncio.run(check_all_products(config, state))
-                product_map = {p["asin"]: p for p in config["products"]}
+                results     = asyncio.run(check_all_products(check_config, state))
+                product_map = {p["asin"]: p for p in check_config["products"]}
 
                 free_items = []
                 names_updated = False
@@ -1197,12 +1227,22 @@ class App(tk.Tk):
         self._log_text.delete("1.0", tk.END)
         self._log_text.configure(state=tk.DISABLED)
 
+    def _toggle_log(self):
+        if self._log_visible:
+            self._log_container.pack_forget()
+            self._log_visible = False
+            self._toggle_log_btn.configure(text=_t("btn_log_show"))
+        else:
+            self._log_container.pack(fill=tk.BOTH, expand=True)
+            self._log_visible = True
+            self._toggle_log_btn.configure(text=_t("btn_log_hide"))
+
     def _poll_log(self):
         try:
             while True:
                 msg = self._log_queue.get_nowait()
                 if msg.startswith("__next_run__"):
-                    self._interval_var.set(f"Next: {msg[len('__next_run__'):]}")
+                    self._interval_var.set(f"{_t('next_check_label')} {msg[len('__next_run__'):]}")
                 elif msg.startswith("__refresh__"):
                     self._refresh_table()
                     self._status_var.set(_t("check_complete"))
