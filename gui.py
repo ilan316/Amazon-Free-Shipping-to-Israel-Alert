@@ -481,6 +481,7 @@ class App(tk.Tk):
         self._monitor_thread: MonitorThread | None = None
         self._stop_event = threading.Event()
         self._log_queue: queue.Queue = queue.Queue()
+        self._manual_check_running = False
         self._tray_icon = None
         self._tray_thread: threading.Thread | None = None
         self._sort_col: str | None = None
@@ -1098,7 +1099,7 @@ class App(tk.Tk):
             )
             self._show_settings()
             return
-        if self._monitor_thread and self._monitor_thread.is_alive():
+        if self._manual_check_running:
             messagebox.showinfo(_t("busy_title"), _t("busy_msg"), parent=self)
             return
 
@@ -1112,6 +1113,7 @@ class App(tk.Tk):
             products_to_check = config.get("products", [])
         check_config = {**config, "products": products_to_check}
 
+        self._manual_check_running = True
         self._status_var.set(_t("check_running"))
         self._append_log("Manual check started...")
 
@@ -1171,6 +1173,8 @@ class App(tk.Tk):
 
             except Exception as e:
                 self._log_queue.put(f"__log_error__Error: {e}")
+            finally:
+                self._manual_check_running = False
 
         threading.Thread(target=run, daemon=True).start()
 
@@ -1584,10 +1588,25 @@ def _ensure_single_instance() -> bool:
         _k32.CreateMutexW(None, True, "AmazonIsraelFreeShipAlert_SingleInstance")
         if _k32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
             _u32 = ctypes.windll.user32
-            _hwnd = _u32.FindWindowW(None, "Amazon Israel Free Ship Alert")
-            if _hwnd:
-                _u32.ShowWindow(_hwnd, 9)      # SW_RESTORE (un-minimise / un-hide)
-                _u32.SetForegroundWindow(_hwnd)
+            # FindWindowW requires exact title — use EnumWindows for partial match
+            # (title includes version suffix, e.g. "Amazon Israel Free Ship Alert  v1.5.0")
+            _found = [0]
+            _WNDENUMPROC = ctypes.WINFUNCTYPE(
+                ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p
+            )
+            @_WNDENUMPROC
+            def _cb(hwnd, _):
+                n = _u32.GetWindowTextLengthW(hwnd) + 1
+                buf = ctypes.create_unicode_buffer(n)
+                _u32.GetWindowTextW(hwnd, buf, n)
+                if "Amazon Israel Free Ship Alert" in buf.value:
+                    _found[0] = hwnd
+                    return False   # stop enumerating
+                return True
+            _u32.EnumWindows(_cb, 0)
+            if _found[0]:
+                _u32.ShowWindow(_found[0], 5)      # SW_SHOW — unhides withdrawn window
+                _u32.SetForegroundWindow(_found[0])
             return False
     except Exception:
         pass
