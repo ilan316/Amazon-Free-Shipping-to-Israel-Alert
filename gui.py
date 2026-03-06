@@ -1451,8 +1451,10 @@ class App(tk.Tk):
                 )
                 with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
                     data = _json.loads(resp.read().decode())
-            except Exception:
-                return  # silent — network errors are not worth surfacing
+            except Exception as _exc:
+                self.after(0, self._append_log,
+                           f"[Update check failed: {_exc}]", "error")
+                return
 
             tag = data.get("tag_name", "").lstrip("v")
             if not tag:
@@ -1534,6 +1536,8 @@ class App(tk.Tk):
         y = max(0, min((sh - dh) // 2, sh - dh - 48))  # 48 ≈ taskbar
         dlg.geometry(f"+{x}+{y}")
         dlg.deiconify()  # show directly at correct position — no flash
+        dlg.lift()
+        dlg.focus_force()
 
     def _start_update_download(self, download_url: str):
         """Download the new installer to a temp file, then launch it."""
