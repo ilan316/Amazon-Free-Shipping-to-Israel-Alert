@@ -78,11 +78,11 @@ _STRINGS: dict = {
         "email_label":          'כתובת הדוא"ל שלך:\u200f',
         "email_hint":           "התראות יישלחו לכתובת זו כשיזוהה משלוח חינם",
         "interval_section":     "מרווח בדיקה",
-        "days":                 "ימים",
         "hours":                "שעות",
-        "minutes":              "דקות",
-        "cooldown_section":     'השהיית התראת דוא"ל',
-        "cooldown_label":       "שעות בין מיילים חוזרים על אותו מוצר:\u200f",
+        "interval_6h":          "6 שעות",
+        "interval_12h":         "12 שעות",
+        "interval_24h":         "24 שעות",
+        "interval_note":        "מייל יישלח עבור מוצרים שעברו למצב FREE SHIPPING, לכל היותר פעם אחת בכל 24 שעות, בהתאם למועד הבדיקה האחרונה.",
         "startup_section":      "הפעלה עם Windows",
         "startup_checkbox":     "הפעל אוטומטית עם הפעלת Windows",
         "btn_save":             "שמור",
@@ -90,9 +90,12 @@ _STRINGS: dict = {
         "language_label":       "שפת ממשק:",
         "language_restart_note":"השינוי יכנס לתוקף עם הפתיחה הבאה",
         "add_title":            "הוסף מוצר/ים",
-        "add_instruction":      "הזן כתובות Amazon או מספרי ASIN — שורה אחת לכל מוצר:",
-        "add_example":          "דוגמה:  B08N5WRWNW   או   https://www.amazon.com/dp/B08N5WRWNW",
+        "add_instruction":      "הזן כתובת מוצר או מספר מוצר (ASIN) — שורה אחת לכל מוצר:",
+        "add_example":          "דוגמה: https://www.amazon.com/dp/B0CKH5GJFN או B0CKH5GJFN",
         "btn_add":              "הוסף",
+        "btn_paste":            "הדבק",
+        "check_now_title":      "בדיקה עכשיו",
+        "check_now_prompt":     "האם לבצע בדיקה עכשיו?",
         "invalid_entries":      "ערכים לא תקינים",
         "no_selection":         "אין בחירה",
         "select_to_pause":      "בחר מוצר להשהיה/חידוש.",
@@ -124,7 +127,7 @@ _STRINGS: dict = {
         "log_paused_action":    "הושהה: {}",
         "log_resumed_action":   "חודש: {}",
         "log_removed_action":   "מוצר הוסר: {}",
-        "settings_saved":       "הגדרות נשמרו. מרווח: {}י {}ש {}ד ({} דק'). השהייה: {}ש.{}{}",
+        "settings_saved":       "הגדרות נשמרו. מרווח: {} שעות.{}{}",
         "autostart_on_log":     "  הפעלה אוטומטית: פועל.",
         "autostart_off_log":    "  הפעלה אוטומטית: כבוי.",
         "email_set_log":        '  דוא"ל: {}.',
@@ -168,11 +171,11 @@ _STRINGS: dict = {
         "email_label":          "Your email address:",
         "email_hint":           "Alerts will be sent to this address when FREE shipping is detected",
         "interval_section":     "Check interval",
-        "days":                 "Days",
         "hours":                "Hours",
-        "minutes":              "Minutes",
-        "cooldown_section":     "Email notification cooldown",
-        "cooldown_label":       "Hours between repeat emails for the same FREE product:",
+        "interval_6h":          "6 hours",
+        "interval_12h":         "12 hours",
+        "interval_24h":         "24 hours",
+        "interval_note":        "An email will be sent for products that switched to FREE SHIPPING, at most once every 24 hours, based on the last check time.",
         "startup_section":      "Windows startup",
         "startup_checkbox":     "Start automatically when Windows boots",
         "btn_save":             "Save",
@@ -180,9 +183,12 @@ _STRINGS: dict = {
         "language_label":       "Interface language:",
         "language_restart_note":"Change takes effect on next app launch",
         "add_title":            "Add Product(s)",
-        "add_instruction":      "Enter one or more Amazon URLs or ASINs — one per line:",
-        "add_example":          "Example:  B08N5WRWNW   or   https://www.amazon.com/dp/B08N5WRWNW",
+        "add_instruction":      "Enter product URL or ASIN — one per line:",
+        "add_example":          "Example: https://www.amazon.com/dp/B0CKH5GJFN or B0CKH5GJFN",
         "btn_add":              "Add",
+        "btn_paste":            "Paste",
+        "check_now_title":      "Check Now",
+        "check_now_prompt":     "Run a check now?",
         "invalid_entries":      "Invalid entries",
         "no_selection":         "No selection",
         "select_to_pause":      "Select a product to pause/resume.",
@@ -214,7 +220,7 @@ _STRINGS: dict = {
         "log_paused_action":    "Paused: {}",
         "log_resumed_action":   "Resumed: {}",
         "log_removed_action":   "Removed product: {}",
-        "settings_saved":       "Settings saved. Interval: {}d {}h {}m ({} min). Cooldown: {}h.{}{}",
+        "settings_saved":       "Settings saved. Interval: {} hours.{}{}",
         "autostart_on_log":     "  Auto-start: ON.",
         "autostart_off_log":    "  Auto-start: OFF.",
         "email_set_log":        "  Email: {}.",
@@ -486,6 +492,7 @@ class App(tk.Tk):
         self._tray_thread: threading.Thread | None = None
         self._sort_col: str | None = None
         self._sort_rev: bool = False
+        self._checked: dict = {}  # asin → bool, True = checked (default)
 
         self._build_ui()
         self._refresh_table()
@@ -586,8 +593,9 @@ class App(tk.Tk):
                  font=("Segoe UI", 11, "bold"),
                  anchor=_ANCHOR, justify=_JUSTIFY, bg=_BG).pack(anchor=_ANCHOR, fill=tk.X)
 
-        cols = ("name", "asin", "status", "last_checked")
+        cols = ("check", "name", "asin", "status", "last_checked")
         self.tree = ttk.Treeview(top, columns=cols, show="headings", selectmode="extended", height=8)
+        self.tree.heading("check", text="☑", command=self._toggle_all_checked)
         for _col, _txt in [
             ("name",         _t("col_product_name")),
             ("asin",         _t("col_asin")),
@@ -595,6 +603,7 @@ class App(tk.Tk):
             ("last_checked", _t("col_last_checked")),
         ]:
             self.tree.heading(_col, text=_txt, command=lambda c=_col: self._sort_by(c))
+        self.tree.column("check",        width=30,  anchor="center", stretch=False)
         self.tree.column("name",         width=260, anchor=_ANCHOR)
         self.tree.column("asin",         width=110, anchor="center")
         self.tree.column("status",       width=175, anchor="center")
@@ -607,6 +616,7 @@ class App(tk.Tk):
 
         self.tree.bind("<Double-1>", self._on_product_double_click)
         self.tree.bind("<<TreeviewSelect>>", self._on_tree_select)
+        self.tree.bind("<ButtonRelease-1>", self._on_tree_click)
 
         for status, colour in STATUS_COLORS.items():
             self.tree.tag_configure(status, foreground=colour)
@@ -718,6 +728,16 @@ class App(tk.Tk):
             arrow = (" ▼" if self._sort_rev else " ▲") if self._sort_col == col else ""
             self.tree.heading(col, text=base + arrow)
 
+        # Sync _checked: add new products (default True), keep existing state
+        current_asins = {p["asin"] for p in config.get("products", [])}
+        for asin in current_asins:
+            if asin not in self._checked:
+                self._checked[asin] = True
+        # Remove stale entries
+        for asin in list(self._checked):
+            if asin not in current_asins:
+                del self._checked[asin]
+
         # Build row data
         rows = []
         for p in config.get("products", []):
@@ -762,8 +782,9 @@ class App(tk.Tk):
         for iid in self.tree.get_children():
             self.tree.delete(iid)
         for r in rows:
+            chk_sym = "☑" if self._checked.get(r["asin"], True) else "☐"
             self.tree.insert("", tk.END, iid=r["asin"],
-                             values=(r["name"], r["asin"], r["label"], r["disp_last"]),
+                             values=(chk_sym, r["name"], r["asin"], r["label"], r["disp_last"]),
                              tags=(r["tag"],))
         self._on_tree_select()
 
@@ -802,23 +823,52 @@ class App(tk.Tk):
                     self._pause_btn.configure(text=_t("btn_pause"))
                 return
 
+    def _on_tree_click(self, event):
+        """Toggle checkbox when user clicks the check column cell."""
+        region = self.tree.identify_region(event.x, event.y)
+        if region != "cell":
+            return
+        col = self.tree.identify_column(event.x)
+        if col != "#1":  # check column is first (#1)
+            return
+        row = self.tree.identify_row(event.y)
+        if not row:
+            return
+        self._checked[row] = not self._checked.get(row, True)
+        self.tree.set(row, "check", "☑" if self._checked[row] else "☐")
+
+    def _toggle_all_checked(self):
+        """Select All / Deselect All via the check column heading."""
+        if not self._checked:
+            return
+        all_checked = all(self._checked.values())
+        new_state = not all_checked
+        for asin in self._checked:
+            self._checked[asin] = new_state
+        self._refresh_table()
+
+    def _checked_asins(self) -> list:
+        """Return list of checked ASINs, or all ASINs if none are checked."""
+        checked = [asin for asin, v in self._checked.items() if v]
+        return checked if checked else list(self._checked)
+
     def _toggle_pause(self):
-        sel = self.tree.selection()
-        if not sel:
+        targets = self._checked_asins()
+        if not targets:
             messagebox.showinfo(_t("no_selection"), _t("select_to_pause"), parent=self)
             return
-        asin = sel[0]
         config = cfg_module.load_config()
+        actions = []
         for p in config.get("products", []):
-            if p["asin"] == asin:
+            if p["asin"] in targets:
                 p["paused"] = not p.get("paused", False)
-                action = _t("log_paused_action", p.get("name", asin)) if p["paused"] \
-                         else _t("log_resumed_action", p.get("name", asin))
-                break
+                action = _t("log_paused_action", p.get("name", p["asin"])) if p["paused"] \
+                         else _t("log_resumed_action", p.get("name", p["asin"]))
+                actions.append(action)
         cfg_module.save_config(config)
         self._refresh_table()
-        self.tree.selection_set(asin)
-        self._append_log(action)
+        for action in actions:
+            self._append_log(action)
 
     def _maybe_autostart_monitoring(self):
         """Auto-start monitoring on launch if it was running before shutdown."""
@@ -829,13 +879,12 @@ class App(tk.Tk):
     # ── Settings dialog ───────────────────────
 
     def _show_settings(self):
-        """Opens a dialog to configure email, check interval, notification cooldown, and language."""
+        """Opens a dialog to configure email, check interval, and language."""
         config = cfg_module.load_config()
-        total_min = config.get("check_interval_minutes", 60)
-        init_days = total_min // (24 * 60)
-        init_hrs  = (total_min % (24 * 60)) // 60
-        init_mins = total_min % 60
-        init_cooldown = config.get("notification_cooldown_hours", 24)
+        total_min = config.get("check_interval_minutes", 1440)
+        # Snap to nearest supported interval (6h/12h/24h)
+        _supported = [6, 12, 24]
+        _init_hrs = min(_supported, key=lambda h: abs(h * 60 - total_min))
 
         dlg = tk.Toplevel(self)
         dlg.title(_t("settings_title"))
@@ -875,52 +924,20 @@ class App(tk.Tk):
                              font=("Segoe UI", 9), labelanchor=_lbl_anchor)
         frm.pack(padx=16, pady=(0, 6), fill=tk.X)
 
-        spin_cfg = {"width": 4, "font": ("Segoe UI", 10), "justify": "center"}
+        interval_var = tk.IntVar(value=_init_hrs)
 
-        days_var = tk.StringVar(value=str(init_days))
-        hrs_var  = tk.StringVar(value=str(init_hrs))
-        mins_var = tk.StringVar(value=str(init_mins))
+        _radio_frame = tk.Frame(frm)
+        _radio_frame.pack(anchor="e" if _IS_RTL else "w")
+        for hrs, key in [(6, "interval_6h"), (12, "interval_12h"), (24, "interval_24h")]:
+            tk.Radiobutton(
+                _radio_frame, text=_t(key), variable=interval_var, value=hrs,
+                font=("Segoe UI", 9), anchor=_ANCHOR,
+            ).pack(side=tk.RIGHT if _IS_RTL else tk.LEFT, padx=(0, 16) if not _IS_RTL else (16, 0))
 
-        # RTL: reverse display order so "ימים" reads first (rightmost)
-        _interval_pairs = [
-            (_t("days"),    days_var, 0, 365),
-            (_t("hours"),   hrs_var,  0, 23),
-            (_t("minutes"), mins_var, 0, 59),
-        ]
-        if _IS_RTL:
-            _interval_pairs = list(reversed(_interval_pairs))
-
-        # Inner frame: right-align in RTL, left-align in LTR
-        _inner_interval = tk.Frame(frm)
-        _inner_interval.pack(anchor="e" if _IS_RTL else "w")
-
-        for i, (label, var, lo, hi) in enumerate(_interval_pairs):
-            base = i * 2
-            # Within each pair: RTL → spinbox left of label
-            _spin_col  = base     if not _IS_RTL else base + 1
-            _label_col = base + 1 if not _IS_RTL else base
-            # RTL: 8px between pairs (on label's left), 2px within pair (on spin's left)
-            _lpad = (0, 2) if not _IS_RTL else (8, 0)
-            _spad = (0, 10) if not _IS_RTL else (2, 0)
-            tk.Label(_inner_interval, text=label, font=("Segoe UI", 9),
-                     anchor=_ANCHOR, justify=_JUSTIFY).grid(
-                row=0, column=_label_col, padx=_lpad)
-            tk.Spinbox(_inner_interval, from_=lo, to=hi, textvariable=var,
-                       **spin_cfg).grid(row=0, column=_spin_col, padx=_spad)
-
-        # ── Notification cooldown ──
-        frm2 = tk.LabelFrame(dlg, text=_t("cooldown_section"), padx=12, pady=8,
-                              font=("Segoe UI", 9), labelanchor=_lbl_anchor)
-        frm2.pack(padx=16, pady=(0, 6), fill=tk.X)
-
-        cooldown_var = tk.StringVar(value=str(init_cooldown))
-        tk.Label(frm2, text=_t("cooldown_label"),
-                 font=("Segoe UI", 9), anchor=_ANCHOR, justify=_JUSTIFY).grid(
-            row=0, column=_c_lbl, padx=_pad_lbl, sticky=_ANCHOR)
-        tk.Spinbox(frm2, from_=1, to=720, textvariable=cooldown_var,
-                   **spin_cfg).grid(row=0, column=_c_wid,
-                                    padx=(4, 0) if _IS_RTL else (0, 4))
-        frm2.columnconfigure(_c_lbl, weight=1)
+        tk.Label(frm, text=_t("interval_note"),
+                 font=("Segoe UI", 7), fg="#8B7355", wraplength=340,
+                 anchor=_ANCHOR, justify=_JUSTIFY).pack(
+            anchor="e" if _IS_RTL else "w", pady=(6, 0))
 
         # ── Start with Windows ──
         frm3 = tk.LabelFrame(dlg, text=_t("startup_section"), padx=12, pady=8,
@@ -963,24 +980,14 @@ class App(tk.Tk):
             row=1, column=0, columnspan=2, sticky="e" if _IS_RTL else "w", pady=(4, 0))
 
         def _save():
-            try:
-                d = max(0, int(days_var.get()))
-                h = max(0, int(hrs_var.get()))
-                m = max(0, int(mins_var.get()))
-                cooldown = max(1, int(cooldown_var.get()))
-            except ValueError:
-                messagebox.showerror(_t("settings_title"), _t("invalid_number"), parent=dlg)
-                return
-            total = d * 24 * 60 + h * 60 + m
-            if total < 1:
-                messagebox.showerror(_t("settings_title"), _t("interval_too_short"), parent=dlg)
-                return
+            hrs = interval_var.get()
+            total = hrs * 60
             # Save recipient email
             addr = email_var.get().strip()
             if addr:
                 config.setdefault("email", {})["recipient"] = addr
             config["check_interval_minutes"] = total
-            config["notification_cooldown_hours"] = cooldown
+            config["notification_cooldown_hours"] = 24  # fixed behind the scenes
 
             # Save language
             lang_key = "he" if lang_var.get().startswith("ע") else "en"
@@ -992,7 +999,7 @@ class App(tk.Tk):
 
             autostart_msg = _t("autostart_on_log") if autostart_var.get() else _t("autostart_off_log")
             email_msg = _t("email_set_log", addr) if addr else ""
-            self._append_log(_t("settings_saved", d, h, m, total, cooldown, email_msg, autostart_msg))
+            self._append_log(_t("settings_saved", hrs, email_msg, autostart_msg))
 
             if lang_changed:
                 messagebox.showinfo(_t("language_section"), _t("language_restart_note"), parent=dlg)
@@ -1036,6 +1043,14 @@ class App(tk.Tk):
                  font=("Segoe UI", 8), fg="#8B7355",
                  anchor=_ANCHOR, justify=_JUSTIFY).pack(anchor=_ANCHOR, padx=12, pady=(3, 0))
 
+        def _do_paste():
+            try:
+                clip = dlg.clipboard_get()
+            except tk.TclError:
+                return
+            if clip:
+                txt.insert(tk.INSERT, clip)
+
         def _do_add():
             raw = txt.get("1.0", tk.END).strip()
             dlg.destroy()
@@ -1069,22 +1084,32 @@ class App(tk.Tk):
                     parent=self,
                 )
 
-        tk.Button(dlg, text=_t("btn_add"), command=_do_add,
+            if added_asins:
+                if messagebox.askyesno(_t("check_now_title"), _t("check_now_prompt"), parent=self):
+                    self._check_now()
+
+        _btn_row = tk.Frame(dlg)
+        _btn_row.pack(pady=(6, 12))
+        tk.Button(_btn_row, text=_t("btn_paste"), command=_do_paste,
+                  bg="#6B5E45", fg="white", relief=tk.FLAT,
+                  padx=12, pady=4, font=("Segoe UI", 9),
+                  cursor="hand2").pack(side=tk.LEFT, padx=(0, 8))
+        tk.Button(_btn_row, text=_t("btn_add"), command=_do_add,
                   bg="#F5A31A", fg="white", relief=tk.FLAT,
                   padx=16, pady=4, font=("Segoe UI", 9),
-                  cursor="hand2").pack(pady=(6, 12))
+                  cursor="hand2").pack(side=tk.LEFT)
 
     def _remove_product(self):
-        sel = self.tree.selection()
-        if not sel:
+        targets = self._checked_asins()
+        if not targets:
             messagebox.showinfo(_t("no_selection"), _t("select_to_remove"), parent=self)
             return
-        asin = sel[0]
-        if messagebox.askyesno(_t("remove_title"),
-                               _t("remove_confirm", asin), parent=self):
-            cfg_module.remove_product(asin)
+        confirm_msg = _t("remove_confirm", ", ".join(targets))
+        if messagebox.askyesno(_t("remove_title"), confirm_msg, parent=self):
+            for asin in targets:
+                cfg_module.remove_product(asin)
+                self._append_log(_t("log_removed_action", asin))
             self._refresh_table()
-            self._append_log(_t("log_removed_action", asin))
 
     def _check_now(self):
         config = cfg_module.load_config()
@@ -1103,13 +1128,11 @@ class App(tk.Tk):
             messagebox.showinfo(_t("busy_title"), _t("busy_msg"), parent=self)
             return
 
-        # Check only selected products; fall back to all when nothing selected
-        sel = self.tree.selection()
-        if sel:
-            selected_asins = set(sel)
-            products_to_check = [p for p in config.get("products", [])
-                                  if p["asin"] in selected_asins]
-        else:
+        # Check only checked products; fall back to all when none checked
+        checked = self._checked_asins()
+        products_to_check = [p for p in config.get("products", [])
+                             if p["asin"] in checked]
+        if not products_to_check:
             products_to_check = config.get("products", [])
         check_config = {**config, "products": products_to_check}
 
