@@ -1524,7 +1524,7 @@ class App(tk.Tk):
             anchor=_ANCHOR,
         ).pack(anchor=_ANCHOR)
 
-        btn_row = tk.Frame(dlg, padx=20, pady=(0, 18))
+        btn_row = tk.Frame(dlg, padx=20, pady=18)
         btn_row.pack()
 
         def _on_now():
