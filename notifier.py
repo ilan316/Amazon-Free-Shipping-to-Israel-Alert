@@ -14,6 +14,7 @@ import logging
 from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.mime.image import MIMEImage
 
 logger = logging.getLogger(__name__)
 
@@ -24,19 +25,19 @@ _MAX_NAME_BODY = 88
 # ── Localized strings ─────────────────────────────────────────────────────────
 _STRINGS = {
     "he": {
-        "subject_single":   "פרסומת | 🚨 משלוח חינם לישראל: {name}",
-        "subject_multi":    "פרסומת | 🚨 משלוח חינם לישראל: {n} מוצרים",
-        "preheader":        "אל תפספס! המחיר עשוי להשתנות בכל עת — לחץ לפרטים",
+        "subject_single":   "🚨 משלוח חינם לישראל: נמצא מוצר 1",
+        "subject_multi":    "🚨 משלוח חינם לישראל: נמצאו {n} מוצרים",
+        "preheader":        "מצאנו משלוח חינם לישראל! בדוק את המוצר שלך עכשיו",
         "header_title":     "משלוח חינם לישראל 🚚",
         "header_sub":       "נמצאו {n} מוצרים עם משלוח חינם",
         "header_sub1":      "נמצא מוצר עם משלוח חינם",
         "shipping_badge":   "✅ משלוח חינם לישראל · הזמנות $49+",
-        "btn_buy":          "לקנות באמזון →",
+        "btn_buy":          "קנה עכשיו",
         "urgency":          "⏰ המחיר עשוי להשתנות בכל עת",
         "quick_tip_title":  "💡 טיפ לחיסכון",
-        "quick_tip_body":   "הזמינו בין $49 ל-$74.99 כדי ליהנות ממשלוח חינם ללא מכס ישראלי.",
+        "quick_tip_body":   "הזמינו בין $49 ל-$130 כדי ליהנות ממשלוח חינם ללא מכס ישראלי.",
         "disclosure":       "קישור שותף — הקנייה לא עולה לך יותר, אך אנו עשויים לקבל עמלה קטנה.",
-        "footer":           "נבדק: {checked_at} · Amazon Free Shipping Monitor",
+        "footer":           "נבדק: {checked_at} · Amazon Free Shipping to Israel Alert",
         "aod_note":         "⚠️ המשלוח החינמי נמצא תחת <strong>\"כל אפשרויות הקנייה\"</strong>.<br>"
                             "פתח את עמוד המוצר &larr; לחץ <strong>\"ראה את כל אפשרויות הקנייה\"</strong>"
                             " &larr; בחר את ההצעה עם משלוח חינם.",
@@ -49,19 +50,19 @@ _STRINGS = {
         "plain_footer":     "נבדק: {checked_at}",
     },
     "en": {
-        "subject_single":   "🚨 FREE Shipping to Israel: {name}",
+        "subject_single":   "🚨 FREE Shipping to Israel: 1 product found",
         "subject_multi":    "🚨 FREE Shipping to Israel: {n} products found",
         "preheader":        "Don't miss out! Price may change at any time — check now",
         "header_title":     "FREE Shipping to Israel 🚚",
         "header_sub":       "{n} products with free shipping found",
         "header_sub1":      "1 product with free shipping found",
         "shipping_badge":   "✅ FREE Shipping to Israel · Orders $49+",
-        "btn_buy":          "Buy on Amazon →",
+        "btn_buy":          "Buy Now",
         "urgency":          "⏰ Price may change at any time",
         "quick_tip_title":  "💡 Money-Saving Tip",
-        "quick_tip_body":   "Order between $49–$74.99 to enjoy free shipping without Israeli customs fees.",
+        "quick_tip_body":   "Order between $49–$130 to enjoy free shipping without Israeli customs fees.",
         "disclosure":       "Affiliate link — no extra cost to you, but we may earn a small commission.",
-        "footer":           "Checked at: {checked_at} · Amazon Free Shipping Monitor",
+        "footer":           "Checked at: {checked_at} · Amazon Free Shipping to Israel Alert",
         "aod_note":         "⚠️ Free shipping found in <strong>All Buying Options</strong>.<br>"
                             "Open the product page &rarr; click <strong>&ldquo;See All Buying Options&rdquo;</strong>"
                             " &rarr; select the offer with free shipping.",
@@ -95,8 +96,12 @@ def _short_product_name(name: str, limit: int = _MAX_NAME_BODY) -> str:
     return f"{head.rstrip()}…"
 
 
-def _smtp_send(config: dict, subject: str, text_body: str, html_body: str):
-    """Internal helper — connects to SMTP and sends the message."""
+def _smtp_send(config: dict, subject: str, text_body: str, html_body: str,
+               inline_images: dict | None = None):
+    """Internal helper — connects to SMTP and sends the message.
+
+    inline_images: optional dict of {cid_string: bytes} for CID-embedded images.
+    """
     email_cfg   = config.get("email", {})
     sender      = email_cfg.get("sender", "")
     recipient   = email_cfg.get("recipient", "")
@@ -110,12 +115,26 @@ def _smtp_send(config: dict, subject: str, text_body: str, html_body: str):
     if not app_password:
         raise RuntimeError("GMAIL_APP_PASSWORD missing from .env file.")
 
-    msg = MIMEMultipart("alternative")
+    # Build multipart/alternative (text + html), then wrap in multipart/related
+    # if there are inline images (CID attachments).
+    alt = MIMEMultipart("alternative")
+    alt.attach(MIMEText(text_body, "plain", "utf-8"))
+    alt.attach(MIMEText(html_body, "html",  "utf-8"))
+
+    if inline_images:
+        msg = MIMEMultipart("related")
+        msg.attach(alt)
+        for cid, img_bytes in inline_images.items():
+            img_part = MIMEImage(img_bytes)
+            img_part.add_header("Content-ID", f"<{cid}>")
+            img_part.add_header("Content-Disposition", "inline")
+            msg.attach(img_part)
+    else:
+        msg = alt
+
     msg["Subject"] = subject
     msg["From"]    = sender
     msg["To"]      = recipient
-    msg.attach(MIMEText(text_body, "plain", "utf-8"))
-    msg.attach(MIMEText(html_body, "html",  "utf-8"))
 
     try:
         with smtplib.SMTP(smtp_host, smtp_port, timeout=20) as server:
@@ -144,7 +163,20 @@ def send_batch_free_shipping_alert(config: dict, items: list):
 
     lang          = config.get("language", "he")
     affiliate_tag = os.environ.get("AMAZON_AFFILIATE_TAG", "").strip()
-    checked_at    = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    checked_at    = datetime.now().strftime("%d/%m/%Y")
+
+    # Logo: prefer external URL (best deliverability), fall back to CID inline.
+    _logo_cid   = "logo_img"
+    _logo_bytes = None
+    _logo_url   = os.environ.get("LOGO_URL", "").strip()
+    if _logo_url:
+        _logo_src = _logo_url          # external URL — no CID attachment needed
+    else:
+        _logo_path = os.path.join(os.path.dirname(__file__), "logo-new.png")
+        if os.path.exists(_logo_path):
+            with open(_logo_path, "rb") as _f:
+                _logo_bytes = _f.read()
+        _logo_src = f"cid:{_logo_cid}" if _logo_bytes else ""
     is_rtl        = lang == "he"
     txt_dir       = 'dir="rtl"' if is_rtl else ""
     txt_align     = "right"     if is_rtl else "left"
@@ -184,8 +216,9 @@ def send_batch_free_shipping_alert(config: dict, items: list):
     text_body = "\n".join(lines)
 
     # ── CTA button builder (bulletproof table-based) ──────────
-    def _cta_btn(url: str, label: str) -> str:
-        return f"""<table cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 4px;">
+    def _cta_btn(url: str, label: str, align: str = "left") -> str:
+        ml = "auto" if align == "right" else "0"
+        return f"""<table cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 4px; margin-left:{ml};">
               <tr>
                 <td align="center" bgcolor="#FF9900"
                     style="border-radius:6px;">
@@ -200,13 +233,11 @@ def send_batch_free_shipping_alert(config: dict, items: list):
             </table>"""
 
     # ── HTML product cards ────────────────────────────────────
-    # RTL: image on right, text on left → reverse column order
     product_cards = ""
     for item in items:
         p       = item["product"]
         asin    = p.get("asin", "")
         name    = _short_product_name(p.get("name", asin), _MAX_NAME_BODY)
-        img_url = f"https://m.media-amazon.com/images/P/{asin}.01._SL200_.jpg"
         product_url = (
             f"https://www.amazon.com/dp/{asin}?tag={affiliate_tag}"
             if affiliate_tag else
@@ -216,77 +247,53 @@ def send_batch_free_shipping_alert(config: dict, items: list):
         aod_block = ""
         if item.get("found_in_aod"):
             aod_block = f"""<tr>
-              <td colspan="3" style="padding:10px 0 0;">
+              <td style="padding:10px 0 0;">
                 <div style="background:#fff8e1;
                             border-{('right' if is_rtl else 'left')}:3px solid #FF9900;
                             padding:10px 14px; border-radius:4px;
-                            font-size:12px; color:#555; line-height:1.6;
+                            font-size:13px; color:#555; line-height:1.6;
                             text-align:{txt_align};" {txt_dir}>
                   {_t(lang, "aod_note")}
                 </div>
               </td>
             </tr>"""
 
-        # Image cell and content cell — order depends on RTL
-        img_cell = f"""<td width="120" valign="top"
-               style="padding:{('16px 0 16px 16px' if is_rtl else '16px 16px 16px 0')};">
-            <a href="{product_url}" target="_blank">
-              <img src="{img_url}" width="110" height="110" alt="{name}"
-                   style="display:block; border-radius:6px;
-                          border:1px solid #e8e8e8; object-fit:contain;">
-            </a>
-          </td>"""
-
-        content_cell = f"""<td valign="top"
-               style="padding:{('16px 16px 16px 0' if is_rtl else '16px 0 16px 16px')};">
+        product_cards += f"""
+      <table width="100%" cellpadding="0" cellspacing="0"
+             style="background:#ffffff; border:1px solid #e8e8e8; border-radius:10px;
+                    margin-bottom:14px;">
+        <tr>
+          <td valign="top" style="padding:16px;">
 
             <!-- Product name -->
-            <p style="margin:0 0 3px; font-size:15px; font-weight:bold;
+            <p style="margin:0 0 4px; font-size:16px; font-weight:bold;
                       line-height:1.4; text-align:{txt_align};" {txt_dir}>
               <a href="{product_url}"
                  style="color:#0066cc; text-decoration:none;">{name}</a>
             </p>
 
             <!-- ASIN -->
-            <p style="margin:0 0 8px; font-size:11px; color:#aaa;
+            <p style="margin:0 0 10px; font-size:13px; color:#666;
                       text-align:{txt_align};">ASIN: {asin}</p>
 
             <!-- Shipping badge -->
-            <p style="margin:0 0 10px; font-size:12px; font-weight:bold;
+            <p style="margin:0 0 12px; font-size:13px; font-weight:bold;
                       color:#007600; text-align:{txt_align};" {txt_dir}>
               {_t(lang, "shipping_badge")}
             </p>
 
-            <!-- Primary CTA -->
+            <!-- CTA -->
             <div style="text-align:{txt_align};">
-              {_cta_btn(product_url, _t(lang, "btn_buy"))}
+              {_cta_btn(product_url, _t(lang, "btn_buy"), txt_align)}
             </div>
 
             <!-- Urgency -->
-            <p style="margin:6px 0 6px; font-size:11px; color:#888;
+            <p style="margin:8px 0 4px; font-size:13px; color:#555;
                       font-style:italic; text-align:{txt_align};" {txt_dir}>
               {_t(lang, "urgency")}
             </p>
 
-            <!-- Secondary CTA -->
-            <div style="text-align:{txt_align};">
-              {_cta_btn(product_url, _t(lang, "btn_buy"))}
-            </div>
-
-          </td>"""
-
-        # Columns order: RTL → content | spacer | image, LTR → image | spacer | content
-        if is_rtl:
-            cols = content_cell + '<td width="1" style="background:#f0f0f0;"></td>' + img_cell
-        else:
-            cols = img_cell + '<td width="1" style="background:#f0f0f0;"></td>' + content_cell
-
-        product_cards += f"""
-      <table width="100%" cellpadding="0" cellspacing="0"
-             style="background:#ffffff; border:1px solid #e8e8e8; border-radius:10px;
-                    margin-bottom:14px;">
-        <tr>
-          {cols}
+          </td>
         </tr>
         {aod_block}
       </table>"""
@@ -300,7 +307,7 @@ def send_batch_free_shipping_alert(config: dict, items: list):
         disclosure_row = f"""
           <tr>
             <td style="padding:12px 24px 4px; text-align:{txt_align};" {txt_dir}>
-              <p style="margin:0; font-size:11px; color:#aaa; font-style:italic;">
+              <p style="margin:0; font-size:12px; color:#666; font-style:italic;">
                 {_t(lang, "disclosure")}
               </p>
             </td>
@@ -328,14 +335,22 @@ def send_batch_free_shipping_alert(config: dict, items: list):
             </td>
           </tr>"""
 
+    body_dir = ' dir="rtl"' if is_rtl else ""
+
     # ── Full HTML ─────────────────────────────────────────────
     html_body = f"""<!DOCTYPE html>
-<html>
+<html{body_dir}>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    @media only screen and (max-width:600px){{
+      .email-container{{ width:100% !important; }}
+      .email-body{{ padding:12px !important; }}
+    }}
+  </style>
 </head>
-<body style="margin:0; padding:0; background:#f3f3f3;
+<body{body_dir} style="margin:0; padding:0; background:#f3f3f3;
              font-family:Arial,'Segoe UI',sans-serif;">
 
   <!-- Hidden preheader -->
@@ -349,18 +364,20 @@ def send_batch_free_shipping_alert(config: dict, items: list):
          style="background:#f3f3f3; padding:24px 0;">
     <tr>
       <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0"
+        <table width="600" cellpadding="0" cellspacing="0" class="email-container"
                style="max-width:600px; width:100%;">
 
           <!-- Header -->
           <tr>
-            <td style="background:#232f3e; border-radius:10px 10px 0 0;
-                       padding:28px 24px; text-align:center;">
-              <h1 style="margin:0 0 6px; color:#FF9900; font-size:22px;
+            <td style="background:#ffffff; border-radius:10px 10px 0 0;
+                       border-bottom:2px solid #FF9900;
+                       padding:24px 24px 18px; text-align:center;">
+              {f'<img src="{_logo_src}" width="140" alt="Amazon Free shipping to Israel Alert" style="display:block; margin:0 auto 12px; max-width:140px;">' if _logo_src else ''}
+              <h1 style="margin:0 0 6px; color:#e47911; font-size:22px;
                          font-weight:bold; letter-spacing:0.3px;" {txt_dir}>
                 {_t(lang, "header_title")}
               </h1>
-              <p style="margin:0; color:rgba(255,255,255,0.7); font-size:13px;"
+              <p style="margin:0; color:#555; font-size:14px;"
                  {txt_dir}>
                 {header_sub}
               </p>
@@ -388,11 +405,14 @@ def send_batch_free_shipping_alert(config: dict, items: list):
 
           <!-- Footer -->
           <tr>
-            <td style="background:#232f3e; border-radius:0 0 10px 10px;
-                       padding:12px 24px; text-align:center;">
-              <p style="margin:0; color:rgba(255,255,255,0.45); font-size:11px;"
+            <td style="background:#f8f8f8; border-radius:0 0 10px 10px;
+                       padding:14px 24px; text-align:center;">
+              <p style="margin:0 0 6px; color:#888; font-size:12px;"
                  {txt_dir}>
                 {_t(lang, "footer", checked_at=checked_at)}
+              </p>
+              <p style="margin:0; color:#bbb; font-size:11px;">
+                Amazon Free Shipping to Israel Alert
               </p>
             </td>
           </tr>
@@ -404,7 +424,8 @@ def send_batch_free_shipping_alert(config: dict, items: list):
 </body>
 </html>"""
 
-    _smtp_send(config, subject, text_body, html_body)
+    inline_images = {_logo_cid: _logo_bytes} if _logo_bytes else None
+    _smtp_send(config, subject, text_body, html_body, inline_images)
 
 
 def send_free_shipping_alert(config: dict, product: dict, shipping_text: str):
