@@ -42,9 +42,19 @@ except Exception as _e:
 
 import config as cfg_module
 import state as state_module
-from checker import check_all_products, ShippingStatus
-from notifier import send_batch_free_shipping_alert
 from version import __version__
+
+
+def _run_check_all_products(config: dict, state: dict):
+    # Delay checker/playwright import until a check actually runs.
+    from checker import check_all_products as _check_all_products
+    return _check_all_products(config, state)
+
+
+def _send_email_alert(config: dict, items: list):
+    # Delay notifier import until we really send an email.
+    from notifier import send_batch_free_shipping_alert as _send_batch_alert
+    return _send_batch_alert(config, items)
 
 # ──────────────────────────────────────────────
 # Internationalisation (i18n)
@@ -407,7 +417,7 @@ class MonitorThread(threading.Thread):
                 self._log("  Setting delivery location to Israel...")
                 check_config = {**config, "products": active}
                 try:
-                    results = asyncio.run(check_all_products(check_config, state))
+                    results = asyncio.run(_run_check_all_products(check_config, state))
                     product_map = {p["asin"]: p for p in products}
 
                     free_items = []
@@ -447,7 +457,7 @@ class MonitorThread(threading.Thread):
                         )
                         self._log(f"FREE shipping for: {names} — sending email...")
                         try:
-                            send_batch_free_shipping_alert(config, free_items)
+                            _send_email_alert(config, free_items)
                             self._log("Email alert sent successfully.")
                         except RuntimeError as mail_err:
                             self._log(f"EMAIL ERROR: {mail_err}")
@@ -498,7 +508,8 @@ class App(tk.Tk):
         self._refresh_table()
         self._poll_log()
         self.protocol("WM_DELETE_WINDOW", self._on_close)
-        self._init_tray()
+        # Defer tray setup so the main window can appear faster.
+        self.after(1000, self._init_tray)
         self._sync_autostart()                          # upgrade registry to VBS if needed
         self.after(800, self._maybe_autostart_monitoring)  # resume monitoring if it was running
         self.after(2000, self._check_for_updates)       # check for newer version on startup
@@ -1143,7 +1154,7 @@ class App(tk.Tk):
         def run():
             state = state_module.load_state()
             try:
-                results     = asyncio.run(check_all_products(check_config, state))
+                results     = asyncio.run(_run_check_all_products(check_config, state))
                 product_map = {p["asin"]: p for p in check_config["products"]}
 
                 free_items = []
@@ -1185,7 +1196,7 @@ class App(tk.Tk):
                     )
                     self._log_queue.put(f"__log__FREE shipping found for: {names}! Sending email...")
                     try:
-                        send_batch_free_shipping_alert(config, free_items)
+                        _send_email_alert(config, free_items)
                         self._log_queue.put("__log__Email alert sent successfully.")
                     except RuntimeError as mail_err:
                         self._log_queue.put(f"__log__EMAIL ERROR: {mail_err}")
@@ -1466,6 +1477,8 @@ class App(tk.Tk):
                     download_url = asset.get("browser_download_url", "")
                     break
             if not download_url:
+                self.after(0, self._append_log,
+                           f"[Update] v{tag} found but no matching asset — skipping")
                 return
 
             try:
@@ -1475,6 +1488,8 @@ class App(tk.Tk):
                 return
 
             if latest > current:
+                self.after(0, self._append_log,
+                           f"[Update] v{tag} available — showing dialog...")
                 self.after(0, self._show_update_dialog, tag, download_url)
 
         threading.Thread(target=_check, daemon=True).start()
@@ -1491,7 +1506,6 @@ class App(tk.Tk):
         dlg.title(_t("update_available_title"))
         dlg.resizable(False, False)
         dlg.transient(self)
-        dlg.grab_set()
         try:
             dlg.iconbitmap(os.path.join(os.getcwd(), "icon.ico"))
         except Exception:
@@ -1538,10 +1552,11 @@ class App(tk.Tk):
         dlg.deiconify()  # show directly at correct position — no flash
         dlg.lift()
         dlg.focus_force()
+        dlg.grab_set()   # grab only after window is visible — avoids UI freeze
 
     def _start_update_download(self, download_url: str):
         """Download the new installer to a temp file, then launch it."""
-        install_dir = os.getcwd()
+        install_dir = os.path.dirname(os.path.abspath(__file__))
         self._append_log(_t("downloading_update"))
         self._status_var.set(_t("downloading_update"))
 
@@ -1590,8 +1605,9 @@ class App(tk.Tk):
                 creationflags=0x00000008 | 0x08000000,  # DETACHED_PROCESS | CREATE_NO_WINDOW
             )
         except Exception as exc:
-            self._append_log(f"Failed to launch installer: {exc}", "error")
+            self._append_log(f"[Update] Failed to launch installer: {exc}", "error")
             return
+        self._append_log("[Update] Installer launched — closing app...")
         if self._tray_icon:
             self._tray_icon.stop()
         if self._monitor_thread and self._monitor_thread.is_alive():
