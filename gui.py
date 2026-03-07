@@ -1499,7 +1499,6 @@ class App(tk.Tk):
         # Bring main window to front (it may be hidden in tray)
         self.deiconify()
         self.lift()
-        self.update_idletasks()
 
         dlg = tk.Toplevel(self)
         dlg.withdraw()  # hide until positioned — prevents flash at (0,0)
@@ -1550,8 +1549,10 @@ class App(tk.Tk):
         y = max(0, min((sh - dh) // 2, sh - dh - 48))  # 48 ≈ taskbar
         dlg.geometry(f"+{x}+{y}")
         dlg.deiconify()  # show directly at correct position — no flash
+        dlg.attributes("-topmost", True)   # force above all windows (Windows focus rules)
         dlg.lift()
         dlg.focus_force()
+        dlg.after(300, lambda: dlg.attributes("-topmost", False))  # release topmost after 300ms
         dlg.grab_set()   # grab only after window is visible — avoids UI freeze
 
     def _start_update_download(self, download_url: str):
