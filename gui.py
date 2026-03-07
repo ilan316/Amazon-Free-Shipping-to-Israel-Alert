@@ -1496,12 +1496,18 @@ class App(tk.Tk):
 
     def _show_update_dialog(self, version: str, download_url: str):
         """Show a modal dialog offering to download the new version."""
+        try:
+            self._show_update_dialog_impl(version, download_url)
+        except Exception as exc:
+            self._append_log(f"[Update] dialog error: {exc}", "error")
+
+    def _show_update_dialog_impl(self, version: str, download_url: str):
         # Bring main window to front (it may be hidden in tray)
         self.deiconify()
         self.lift()
 
         dlg = tk.Toplevel(self)
-        dlg.withdraw()  # hide until positioned — prevents flash at (0,0)
+        # No withdraw — avoids Windows bug where deiconify() silently fails
         dlg.title(_t("update_available_title"))
         dlg.resizable(False, False)
         dlg.transient(self)
@@ -1540,20 +1546,18 @@ class App(tk.Tk):
             command=dlg.destroy,
         ).pack(side=_btn_side)
 
-        dlg.update_idletasks()  # calculate widget sizes without showing
+        dlg.update_idletasks()
         dw = dlg.winfo_reqwidth()
         dh = dlg.winfo_reqheight()
         sw, sh = self.winfo_screenwidth(), self.winfo_screenheight()
-        # Always center on screen — parent position is unreliable after tray restore
-        x = max(0, min((sw - dw) // 2, sw - dw))
-        y = max(0, min((sh - dh) // 2, sh - dh - 48))  # 48 ≈ taskbar
+        x = max(0, (sw - dw) // 2)
+        y = max(0, (sh - dh) // 2 - 48)
         dlg.geometry(f"+{x}+{y}")
-        dlg.deiconify()  # show directly at correct position — no flash
-        dlg.attributes("-topmost", True)   # force above all windows (Windows focus rules)
+        dlg.attributes("-topmost", True)
         dlg.lift()
         dlg.focus_force()
-        dlg.after(300, lambda: dlg.attributes("-topmost", False))  # release topmost after 300ms
-        dlg.grab_set()   # grab only after window is visible — avoids UI freeze
+        dlg.after(300, lambda: dlg.attributes("-topmost", False))
+        dlg.grab_set()
 
     def _start_update_download(self, download_url: str):
         """Download the new installer to a temp file, then launch it."""
