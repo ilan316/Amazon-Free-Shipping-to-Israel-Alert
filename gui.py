@@ -513,6 +513,7 @@ class App(tk.Tk):
         self._sync_autostart()                          # upgrade registry to VBS if needed
         self.after(800, self._maybe_autostart_monitoring)  # resume monitoring if it was running
         self.after(2000, self._check_for_updates)       # check for newer version on startup
+        self.after(3500, self._check_eol_notice)        # show EOL notice once per day
 
     # ── UI construction ──────────────────────
 
@@ -1440,6 +1441,86 @@ class App(tk.Tk):
         """If autostart is registered, silently re-register using the current (VBS) format."""
         if self._get_autostart():
             self._set_autostart(True)
+
+    # ── EOL notice ────────────────────────────
+
+    _EOL_DATE = datetime(2026, 6, 30)
+
+    _EOL_TITLE = "הודעה חשובה"
+
+    def _eol_body(self) -> str:
+        if datetime.now() <= self._EOL_DATE:
+            return (
+                "החל מ-30/06/2026, האפליקציה לא תקבל עדכונים ותמיכה טכנית תופסק.‏\n\n"
+                "ניתן להמשיך לעקוב אחר מוצרים עם משלוח חינם לישראל דרך האתר amzfreeil.com.‏"
+            )
+        return (
+            "התמיכה באפליקציה הופסקה.‏\n\n"
+            "ניתן להמשיך לעקוב אחר מוצרים עם משלוח חינם לישראל דרך האתר amzfreeil.com.‏"
+        )
+
+    def _check_eol_notice(self):
+        state = state_module.load_state()
+        today = datetime.now().strftime("%Y-%m-%d")
+        if state.get("eol_last_shown") == today:
+            return
+        state["eol_last_shown"] = today
+        state_module.save_state(state)
+        self._show_eol_dialog()
+
+    def _show_eol_dialog(self):
+        self.deiconify()
+        self.lift()
+
+        dlg = tk.Toplevel(self)
+        dlg.title(self._EOL_TITLE)
+        dlg.resizable(False, False)
+        dlg.transient(self)
+        try:
+            dlg.iconbitmap(os.path.join(os.getcwd(), "icon.ico"))
+        except Exception:
+            pass
+
+        tk.Label(
+            dlg,
+            text=self._eol_body(),
+            font=("Segoe UI", 10),
+            padx=24, pady=20,
+            justify="right",
+            anchor="e",
+            wraplength=360,
+        ).pack(anchor="e")
+
+        btn_row = tk.Frame(dlg, padx=20, pady=18)
+        btn_row.pack()
+
+        tk.Button(
+            btn_row, text="כניסה לאתר",
+            bg="#F5A31A", fg="white", relief=tk.FLAT,
+            font=("Segoe UI", 10, "bold"), padx=16, pady=6,
+            cursor="hand2",
+            command=lambda: (dlg.destroy(), webbrowser.open("https://www.amzfreeil.com/")),
+        ).pack(side=tk.RIGHT, padx=(8, 0))
+
+        tk.Button(
+            btn_row, text="סגור",
+            relief=tk.FLAT, font=("Segoe UI", 10),
+            padx=16, pady=6, cursor="hand2",
+            command=dlg.destroy,
+        ).pack(side=tk.RIGHT)
+
+        dlg.update_idletasks()
+        dw = dlg.winfo_reqwidth()
+        dh = dlg.winfo_reqheight()
+        sw, sh = self.winfo_screenwidth(), self.winfo_screenheight()
+        x = max(0, (sw - dw) // 2)
+        y = max(0, (sh - dh) // 2 - 48)
+        dlg.geometry(f"+{x}+{y}")
+        dlg.attributes("-topmost", True)
+        dlg.lift()
+        dlg.focus_force()
+        dlg.after(300, lambda: dlg.attributes("-topmost", False))
+        dlg.grab_set()
 
     # ── Auto-update ───────────────────────────
 
