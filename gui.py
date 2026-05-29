@@ -1554,7 +1554,7 @@ class App(tk.Tk):
 
             download_url = ""
             for asset in data.get("assets", []):
-                if asset.get("name") == "AmazonIsraelFreeShipAlert.exe":
+                if asset.get("name") == "AmazonIsraelFreeShipAlert_Setup.exe":
                     download_url = asset.get("browser_download_url", "")
                     break
             if not download_url:

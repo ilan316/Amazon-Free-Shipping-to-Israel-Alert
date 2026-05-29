@@ -20,8 +20,8 @@ jobs:
         with:
           python-version: '3.13'
 
-      - name: Install PyInstaller
-        run: pip install pyinstaller
+      - name: Install build dependencies
+        run: pip install pyinstaller pillow
 
       - name: Create .env
         run: echo GMAIL_APP_PASSWORD=${{ secrets.GMAIL_APP_PASSWORD }} > .env
@@ -40,5 +40,5 @@ jobs:
         with:
           tag_name: v${{ steps.ver.outputs.version }}
           name: v${{ steps.ver.outputs.version }}
-          files: AmazonIsraelFreeShipAlert.exe
+          files: AmazonIsraelFreeShipAlert_Setup.exe
           make_latest: true
