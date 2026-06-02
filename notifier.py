@@ -35,7 +35,7 @@ _STRINGS = {
         "btn_buy":          "קנה עכשיו",
         "urgency":          "⏰ המחיר עשוי להשתנות בכל עת",
         "quick_tip_title":  "💡 טיפ לחיסכון",
-        "quick_tip_body":   "הזמינו בין $49 ל-$130 כדי ליהנות ממשלוח חינם ללא מכס ישראלי.",
+        "quick_tip_body":   "הזמינו בין $49 ל-$75 כדי ליהנות ממשלוח חינם ללא מכס ישראלי.",
         "disclosure":       "קישור שותף — הקנייה לא עולה לך יותר, אך אנו עשויים לקבל עמלה קטנה.",
         "footer":           "נבדק: {checked_at} · Amazon Free Shipping to Israel Alert",
         "aod_note":         "⚠️ המשלוח החינמי נמצא תחת <strong>\"כל אפשרויות הקנייה\"</strong>.<br>"
@@ -60,7 +60,7 @@ _STRINGS = {
         "btn_buy":          "Buy Now",
         "urgency":          "⏰ Price may change at any time",
         "quick_tip_title":  "💡 Money-Saving Tip",
-        "quick_tip_body":   "Order between $49–$130 to enjoy free shipping without Israeli customs fees.",
+        "quick_tip_body":   "Order between $49–$75 to enjoy free shipping without Israeli customs fees.",
         "disclosure":       "Affiliate link — no extra cost to you, but we may earn a small commission.",
         "footer":           "Checked at: {checked_at} · Amazon Free Shipping to Israel Alert",
         "aod_note":         "⚠️ Free shipping found in <strong>All Buying Options</strong>.<br>"
