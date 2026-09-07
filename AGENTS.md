@@ -45,6 +45,10 @@ AmazonIsraelFreeShipAlert.exe   ← launcher של PyInstaller (בלי Python מ�
 - קוד יציאה 0 אינו שגיאה — הוא אומר "האפליקציה כבר רצה ב-tray".
 - `PLAYWRIGHT_BROWSERS_PATH` נקבע במפורש ל-`%LOCALAPPDATA%\ms-playwright`.
 
+## Git
+- **Remote:** https://github.com/ilan316/Amazon-Free-Shipping-to-Israel-Alert.git · ענף `main`
+- הפרויקט מוקפא — אין לדחוף אליו קוד חדש.
+
 ## שפה מועדפת
 עברית — כל התגובות והמסמכים בעברית.
 
