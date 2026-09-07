@@ -8,7 +8,7 @@
 הקוד החי נמצא בשני פרויקטים אחרים:
 
 - **`Amazon Free Shipping to Israel Alert SaaS/`** — הבאקאנד והדשבורד (`app.amzfreeil.com`, Railway)
-- **`amzfreeil-www/`** — האתר השיווקי והבלוג (`www.amzfreeil.com`, Vercel)
+- **`Amazon-Free-Shipping-to-Israel-Alert-website/`** — האתר השיווקי והבלוג (`www.amzfreeil.com`, Vercel)
 
 התיקייה הזו נשמרת להיסטוריה בלבד. **לא לפתח כאן, לא לבנות installer, לא לשחרר גרסה.**
 כל בקשה שנוגעת ל"האפליקציה" צריכה להיות מנותבת ל-SaaS או ל-www.
